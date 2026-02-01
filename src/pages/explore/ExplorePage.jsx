@@ -1,14 +1,14 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import PostCard from "../../components/PostCard";
+import PostDetailModal from "../../components/PostDetailModal";
 import Filters from "../../components/Filters";
 import Accounts from "../../components/Accounts";
 import Comments from "../../components/Comments";
 import { searchService, postService } from "../../services";
-import { useUserProfile } from "../../hooks/useUserProfile";
 
 export default function ExplorePage({ onViewUserProfile }) {
-  const { username: currentUsername } = useUserProfile();
   const [activeTab, setActiveTab] = useState("Posts");
   const [searchTerm, setSearchTerm] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -16,6 +16,8 @@ export default function ExplorePage({ onViewUserProfile }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [activePostId, setActivePostId] = useState(null);
   const [postsComments, setPostsComments] = useState({});
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
 
   // API state
   const [posts, setPosts] = useState([]);
@@ -116,6 +118,16 @@ export default function ExplorePage({ onViewUserProfile }) {
     setActivePostId(null);
   };
 
+  const handlePostClick = (post) => {
+    setSelectedPost(post);
+    setIsPostModalOpen(true);
+  };
+
+  const handleClosePostModal = () => {
+    setIsPostModalOpen(false);
+    setSelectedPost(null);
+  };
+
   const handleAddComment = async (commentText) => {
     if (!activePostId || !commentText.trim()) return;
 
@@ -204,10 +216,6 @@ export default function ExplorePage({ onViewUserProfile }) {
     if (e.key === 'Enter') {
       setSearchQuery(searchTerm);
     }
-  };
-
-  const handleDeletePost = (postId) => {
-    setPosts(posts.filter(p => (p.id || p._id) !== postId));
   };
 
   return (
@@ -311,8 +319,7 @@ export default function ExplorePage({ onViewUserProfile }) {
                 onCommentClick={handleCommentClick}
                 isActive={activePostId === (post.id || post._id)}
                 onViewUserProfile={onViewUserProfile}
-                onDelete={handleDeletePost}
-                currentUsername={currentUsername}
+                onClick={() => handlePostClick(post)}
               />
             ))}
           </div>
@@ -333,6 +340,14 @@ export default function ExplorePage({ onViewUserProfile }) {
       {activeTab === "Accounts" && (
         <Accounts searchQuery={searchQuery} hasSearched={searchQuery !== ""} />
       )}
+
+      {/* Post Detail Modal */}
+      <PostDetailModal
+        isOpen={isPostModalOpen}
+        onClose={handleClosePostModal}
+        post={selectedPost}
+        onViewUserProfile={onViewUserProfile}
+      />
     </main>
   );
 }

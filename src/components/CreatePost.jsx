@@ -116,7 +116,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
 
   // Calculate image display size to cover container while maintaining aspect ratio
   const imageDisplaySize = useMemo(() => {
-    if (!imageDimensions.width || !imageDimensions.height) {
+    if (!imageDimensions.width || !imageDimensions.height || !containerDimensions.width || !containerDimensions.height) {
       return { width: '100%', height: '100%' };
     }
     
@@ -124,20 +124,31 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
     const containerAspectRatio = containerDimensions.width / containerDimensions.height;
     
     // Calculate size to fit image within container (not cover)
-    // This prevents excessive zooming
+    // This prevents excessive zooming - ensure image is fully visible
+    let width, height;
+    
     if (imageAspectRatio > containerAspectRatio) {
       // Image is wider - width determines size
-      return {
-        width: `${containerDimensions.width}px`,
-        height: `${containerDimensions.width / imageAspectRatio}px`
-      };
+      width = containerDimensions.width;
+      height = containerDimensions.width / imageAspectRatio;
     } else {
       // Image is taller - height determines size
-      return {
-        width: `${containerDimensions.height * imageAspectRatio}px`,
-        height: `${containerDimensions.height}px`
-      };
+      width = containerDimensions.height * imageAspectRatio;
+      height = containerDimensions.height;
     }
+    
+    // Ensure minimum size to prevent too small display
+    const minSize = Math.min(containerDimensions.width, containerDimensions.height);
+    if (width < minSize * 0.8 && height < minSize * 0.8) {
+      const scale = (minSize * 0.8) / Math.max(width, height);
+      width *= scale;
+      height *= scale;
+    }
+    
+    return {
+      width: `${width}px`,
+      height: `${height}px`
+    };
   }, [imageDimensions.width, imageDimensions.height, containerDimensions.width, containerDimensions.height]);
 
   // Update container dimensions when it resizes
