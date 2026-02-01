@@ -24,6 +24,7 @@ export const tokenManager = {
 // Create axios instance
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true, // Enable credentials for cookie support
   headers: {
     'Content-Type': 'application/json',
   },
@@ -53,14 +54,14 @@ axiosInstance.interceptors.response.use(
 
       try {
         const refreshToken = tokenManager.getRefreshToken();
-        if (!refreshToken) {
-          throw new Error('No refresh token');
-        }
-
-        // Call refresh endpoint
-        const { data } = await axios.post(`${API_BASE_URL}/api/auth/refresh`, {
-          refreshToken
-        });
+        
+        // Call refresh endpoint (token will be sent via cookie automatically)
+        // But also send in body as fallback
+        const { data } = await axios.post(
+          `${API_BASE_URL}/api/auth/refresh`, 
+          refreshToken ? { token: refreshToken } : {},
+          { withCredentials: true } // Important: send cookies
+        );
 
         if (data.success && data.data?.accessToken) {
           tokenManager.setAccessToken(data.data.accessToken);

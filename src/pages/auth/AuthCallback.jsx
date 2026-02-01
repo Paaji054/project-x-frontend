@@ -33,13 +33,16 @@ export default function AuthCallback() {
           const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/me`, {
             headers: {
               'Authorization': `Bearer ${accessToken}`
-            }
+            },
+            credentials: 'include' // Important: include cookies
           });
           
           if (response.ok) {
             const userData = await response.json();
             if (userData.success && userData.data) {
-              localStorage.setItem('user', JSON.stringify(userData.data));
+              // Backend returns { data: { user } }
+              const user = userData.data.user || userData.data;
+              localStorage.setItem('user', JSON.stringify(user));
             }
           }
           

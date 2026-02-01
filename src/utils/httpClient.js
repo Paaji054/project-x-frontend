@@ -84,6 +84,7 @@ class HTTPClient {
     try {
       const response = await fetch(url, {
         ...options,
+        credentials: 'include', // Enable credentials for cookie support
         signal: controller.signal,
       });
       clearTimeout(timeoutId);

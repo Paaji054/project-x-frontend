@@ -104,9 +104,11 @@ export const authService = {
       const response = await api.get(API_ENDPOINTS.AUTH.ME);
       
       if (response.success && response.data) {
+        // Backend returns { data: { user } }
+        const user = response.data.user || response.data;
         // Update stored user data
-        localStorage.setItem('user', JSON.stringify(response.data));
-        return response.data;
+        localStorage.setItem('user', JSON.stringify(user));
+        return user;
       }
       
       return null;
