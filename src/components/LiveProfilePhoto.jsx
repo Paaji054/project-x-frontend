@@ -90,8 +90,8 @@ export default function LiveProfilePhoto({
   // If no video source or error occurred, just show static image
   const showVideo = isHovered && videoSrc && !hasError;
   
-  // Provide fallback for missing imageSrc
-  const displayImage = imageSrc || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Ccircle cx="50" cy="50" r="50" fill="%23ddd"/%3E%3C/svg%3E';
+  // Use imageSrc directly without default fallback - backend will provide the photo
+  const displayImage = imageSrc;
 
   return (
     <div
@@ -100,18 +100,19 @@ export default function LiveProfilePhoto({
       onMouseLeave={handleMouseLeave}
     >
       {/* Static Image - Always visible as fallback */}
-      <img
-        src={displayImage}
-        alt={alt}
-        className={`w-full h-full object-cover transition-opacity duration-300 ${showVideo ? "opacity-0 absolute inset-0" : "opacity-100"
-          }`}
-        loading="lazy"
-        decoding="async"
-        onError={(e) => {
-          // Fallback to placeholder if image fails to load
-          e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Ccircle cx="50" cy="50" r="50" fill="%23ddd"/%3E%3C/svg%3E';
-        }}
-      />
+      {displayImage && (
+        <img
+          src={displayImage}
+          alt={alt}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${showVideo ? "opacity-0 absolute inset-0" : "opacity-100"
+            }`}
+          loading="lazy"
+          decoding="async"
+          onError={(e) => {
+            console.error('Failed to load profile image:', displayImage);
+          }}
+        />
+      )}
 
       {/* Video - Only shown on hover */}
       {videoSrc && (

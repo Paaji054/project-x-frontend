@@ -12,7 +12,13 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    console.error('❌ ErrorBoundary caught an error:', error);
+    console.error('📍 Component stack:', errorInfo.componentStack);
+    console.error('📋 Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     this.setState({
       error,
       errorInfo
@@ -41,12 +47,13 @@ class ErrorBoundary extends React.Component {
               We encountered an error while loading this page. Please try refreshing.
             </p>
 
-            {this.state.error && this.props.showDetails && (
-              <details className="mb-4 text-left">
-                <summary className="text-sm text-gray-500 dark:text-gray-400 cursor-pointer mb-2">
-                  Error details
+            {/* Always show error details in development */}
+            {this.state.error && (
+              <details className="mb-4 text-left" open>
+                <summary className="text-sm text-gray-500 dark:text-gray-400 cursor-pointer mb-2 font-semibold">
+                  Error details (check console for more info)
                 </summary>
-                <pre className="text-xs bg-gray-100 dark:bg-gray-900 p-3 rounded overflow-auto max-h-40">
+                <pre className="text-xs bg-gray-100 dark:bg-gray-900 p-3 rounded overflow-auto max-h-60 text-left">
                   {this.state.error.toString()}
                   {this.state.errorInfo && this.state.errorInfo.componentStack}
                 </pre>

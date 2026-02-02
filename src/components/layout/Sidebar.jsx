@@ -9,13 +9,6 @@ import messageIcon from "../../assets/message.svg";
 import profileIcon from "../../assets/profile.svg";
 import logoutIcon from "../../assets/logout.svg";
 
-// Highlighted icons
-import homeIconActive from "../../assets/home-active.svg";
-import exploreIconActive from "../../assets/explore-active.svg";
-import messageIconActive from "../../assets/message-active.svg";
-import profileIconActive from "../../assets/profile-active.svg";
-import logoutIconActive from "../../assets/logout-active.svg";
-
 import LogoutConfirmationModal from "../LogoutConfirmationModal";
 import LiveProfilePhoto from "../LiveProfilePhoto";
 import { useUserProfile } from "../../hooks/useUserProfile";
@@ -72,12 +65,12 @@ export default function Sidebar({ onLogout }) {
     };
   }, [username]);
   const items = [
-    { label: "Home", value: "/home", icon: homeIcon, iconActive: homeIconActive },
-    { label: "Explore", value: "/explore", icon: exploreIcon, iconActive: exploreIconActive },
-    { label: "Communities", value: "/communities", icon: communitiesIcon, iconActive: communitiesIcon },
-    { label: "Messages", value: "/messages", icon: messageIcon, iconActive: messageIconActive },
-    { label: "Analytics", value: "/analytics", icon: null, iconActive: null, isReactIcon: true },
-    { label: "Profile", value: "/profile", icon: profileIcon, iconActive: profileIconActive },
+    { label: "Home", value: "/home", icon: homeIcon },
+    { label: "Explore", value: "/explore", icon: exploreIcon },
+    { label: "Communities", value: "/communities", icon: communitiesIcon },
+    { label: "Messages", value: "/messages", icon: messageIcon },
+    { label: "Analytics", value: "/analytics", icon: null, isReactIcon: true },
+    { label: "Profile", value: "/profile", icon: profileIcon },
   ];
 
   const handleLogout = () => {
@@ -147,9 +140,9 @@ export default function Sidebar({ onLogout }) {
               {({ isActive }) => (
                 <span className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-white dark:bg-[#0f0f0f]">
                   {item.isReactIcon ? (
-                    <FiBarChart2 className={`h-5 w-5 ${isActive ? 'text-primary' : 'text-black dark:text-white'}`} />
+                    <FiBarChart2 className="h-5 w-5 text-black dark:text-white" />
                   ) : (
-                    <img src={isActive ? item.icon : item.icon} className="h-5 w-5 invert dark:invert-0" alt={item.label} />
+                    <img src={item.icon} className="h-5 w-5 invert dark:invert-0" alt={item.label} />
                   )}
                   <span className={`${isActive ? "text-transparent bg-clip-text bg-gradient-to-r from-primary-400 via-primary to-primary-700" : ""}`}>
                     {item.label}
@@ -168,7 +161,7 @@ export default function Sidebar({ onLogout }) {
           onMouseLeave={() => setIsLogoutHovered(false)}
         >
           <span className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-white dark:bg-[#0f0f0f]">
-            <img src={isLogoutHovered ? logoutIconActive : logoutIcon} className="h-5 w-5 invert dark:invert-0" alt="Logout" />
+            <img src={logoutIcon} className="h-5 w-5 invert dark:invert-0" alt="Logout" />
             <span className="text-black dark:text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-primary-400 group-hover:via-primary group-hover:to-primary-700 transition-all duration-300">
               Logout
             </span>

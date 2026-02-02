@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import profilePhotoDefault from '../assets/profile-photo.jpg';
 
 /**
  * Get user profile from localStorage
@@ -20,14 +19,14 @@ const getUserProfile = () => {
  */
 export const useUserProfile = () => {
   const [profile, setProfile] = useState(() => getUserProfile());
-  const [profilePhoto, setProfilePhoto] = useState(() => profile?.profilePhoto || profilePhotoDefault);
+  const [profilePhoto, setProfilePhoto] = useState(() => profile?.profilePhoto || null);
   const [profileVideo, setProfileVideo] = useState(() => profile?.profileVideo || null);
 
   useEffect(() => {
     const handleProfileUpdate = (e) => {
       const updatedProfile = e.detail;
       setProfile(updatedProfile);
-      setProfilePhoto(updatedProfile.profilePhoto || profilePhotoDefault);
+      setProfilePhoto(updatedProfile.profilePhoto || null);
       setProfileVideo(updatedProfile.profileVideo || null);
     };
 
@@ -39,7 +38,7 @@ export const useUserProfile = () => {
       const currentProfile = getUserProfile();
       if (currentProfile) {
         setProfile(currentProfile);
-        setProfilePhoto(currentProfile.profilePhoto || profilePhotoDefault);
+        setProfilePhoto(currentProfile.profilePhoto || null);
         setProfileVideo(currentProfile.profileVideo || null);
       }
     };

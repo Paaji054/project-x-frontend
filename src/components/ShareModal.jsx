@@ -1,26 +1,50 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { X } from "lucide-react";
+import { X, Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import LiveProfilePhoto from "./LiveProfilePhoto";
 import { getProfileVideoUrl } from "../utils/profileVideos";
-import { postService } from "../services/postService";
+import { postService, messageService, userService } from "../services";
 
 export default function ShareModal({ isOpen, onClose, onViewUserProfile, postId, postUrl }) {
+  const navigate = useNavigate();
   const [selectedFriends, setSelectedFriends] = useState(new Set());
   const [isSharing, setIsSharing] = useState(false);
+  const [friends, setFriends] = useState([]);
+  const [loadingFriends, setLoadingFriends] = useState(false);
 
-  // Sample friends data
-  const friends = [
-    { id: 1, username: "john_doe", name: "John Doe", image: "https://i.pravatar.cc/100?img=1" },
-    { id: 2, username: "jane_smith", name: "Jane Smith", image: "https://i.pravatar.cc/100?img=2" },
-    { id: 3, username: "mike_ross", name: "Mike Ross", image: "https://i.pravatar.cc/100?img=3" },
-    { id: 4, username: "sarah_jones", name: "Sarah Jones", image: "https://i.pravatar.cc/100?img=4" },
-    { id: 5, username: "david_wilson", name: "David Wilson", image: "https://i.pravatar.cc/100?img=5" },
-    { id: 6, username: "emily_brown", name: "Emily Brown", image: "https://i.pravatar.cc/100?img=6" },
-    { id: 7, username: "chris_taylor", name: "Chris Taylor", image: "https://i.pravatar.cc/100?img=7" },
-    { id: 8, username: "lisa_anderson", name: "Lisa Anderson", image: "https://i.pravatar.cc/100?img=8" },
-  ];
+  // Fetch friends (conversations) when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchFriends();
+    }
+  }, [isOpen]);
+
+  const fetchFriends = async () => {
+    try {
+      setLoadingFriends(true);
+      // Get conversations to show list of people to share with
+      const conversations = await messageService.getConversations(50, 0);
+      
+      // Transform conversations to friends format
+      const friendsList = conversations.map(convo => ({
+        id: convo.otherUser?.id || convo.otherUser?.uid || convo._id,
+        userId: convo.otherUser?.id || convo.otherUser?.uid,
+        username: convo.otherUser?.username || 'Unknown',
+        name: convo.otherUser?.displayName || convo.otherUser?.username || 'Unknown User',
+        image: convo.otherUser?.profilePhoto || convo.otherUser?.avatar,
+        conversationId: convo._id
+      }));
+      
+      setFriends(friendsList);
+    } catch (err) {
+      console.error('Error fetching friends:', err);
+      setFriends([]);
+    } finally {
+      setLoadingFriends(false);
+    }
+  };
 
   const handleFriendToggle = (friendId) => {
     const newSelected = new Set(selectedFriends);
@@ -33,19 +57,64 @@ export default function ShareModal({ isOpen, onClose, onViewUserProfile, postId,
   };
 
   const handleShare = async () => {
-    if (!postId || selectedFriends.size === 0) return;
+    if (selectedFriends.size === 0) return;
 
     try {
       setIsSharing(true);
       
-      // Call backend API to record the share
-      await postService.sharePost(postId);
+      // Record the share in backend
+      if (postId) {
+        await postService.sharePost(postId);
+      }
       
-      // In a real app, you would also send messages to selected friends
-      // For now, we'll just show a success message
+      // Send message to each selected friend
+      const sharePromises = Array.from(selectedFriends).map(async (friendId) => {
+        const friend = friends.find(f => f.id === friendId);
+        if (!friend) return;
+        
+        try {
+          let conversationId = friend.conversationId;
+          
+          // If no conversation exists, create one
+          if (!conversationId && friend.userId) {
+            const newConvo = await messageService.createConversation(friend.userId);
+            conversationId = newConvo?._id;
+          }
+          
+          if (conversationId && friend.userId) {
+            // Send message with shared post
+            const shareText = postUrl 
+              ? `Check out this post: ${postUrl}`
+              : `Shared a post with you!`;
+            
+            await messageService.sendMessage(
+              conversationId,
+              friend.userId,
+              shareText,
+              postUrl,
+              postUrl ? 'image' : 'text'
+            );
+          }
+        } catch (err) {
+          console.error(`Error sharing with ${friend.username}:`, err);
+        }
+      });
+      
+      await Promise.all(sharePromises);
+      
+      // Navigate to messages page and select the first friend's chat
+      const firstFriendId = Array.from(selectedFriends)[0];
+      const firstFriend = friends.find(f => f.id === firstFriendId);
       
       onClose();
       setSelectedFriends(new Set());
+      
+      // Navigate to messages and pass the username to auto-open the chat
+      if (firstFriend?.username) {
+        navigate('/messages', { state: { openChatWithUsername: firstFriend.username } });
+      } else {
+        navigate('/messages');
+      }
     } catch (error) {
       console.error('Error sharing post:', error);
       alert('Failed to share post. Please try again.');
@@ -120,18 +189,48 @@ export default function ShareModal({ isOpen, onClose, onViewUserProfile, postId,
                 className="flex items-center justify-between p-4 md:p-5 border-b border-black dark:border-gray-800 flex-shrink-0"
               >
                 <h2 className="text-lg md:text-xl font-semibold text-black dark:text-white">Share Post</h2>
-                <button
-                  onClick={onClose}
-                  className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full"
-                >
-                  <X className="w-5 h-5 md:w-6 md:h-6" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      onClose();
+                      navigate('/messages?newChat=true');
+                    }}
+                    className="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors"
+                    title="Start new chat"
+                  >
+                    <Plus className="w-5 h-5 text-black dark:text-white" />
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full"
+                  >
+                    <X className="w-5 h-5 md:w-6 md:h-6" />
+                  </button>
+                </div>
               </motion.div>
 
               {/* Friends List */}
               <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-2 scrollbar-hide">
-                <AnimatePresence>
-                  {friends.map((friend, index) => {
+                {loadingFriends ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : friends.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">No conversations yet</p>
+                    <button
+                      onClick={() => {
+                        onClose();
+                        navigate('/messages?newChat=true');
+                      }}
+                      className="px-6 py-2 bg-primary hover:bg-primary-700 text-white rounded-full transition-colors"
+                    >
+                      Start a New Chat
+                    </button>
+                  </div>
+                ) : (
+                  <AnimatePresence>
+                    {friends.map((friend, index) => {
                     const isSelected = selectedFriends.has(friend.id);
                     return (
                       <motion.button
@@ -210,6 +309,7 @@ export default function ShareModal({ isOpen, onClose, onViewUserProfile, postId,
                     );
                   })}
                 </AnimatePresence>
+                )}
               </div>
 
               {/* Share Button */}

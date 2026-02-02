@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { ArrowLeft, Camera, Video, Upload, X } from "lucide-react";
 import { toast } from "react-hot-toast";
-import profilePhotoDefault from "../assets/profile-photo.jpg";
 import LiveProfilePhoto from "../components/LiveProfilePhoto";
 import { useAuth } from "../context/AuthContext";
 import { userService, uploadService } from "../services";
@@ -46,7 +45,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
 
   // Preview states (not saved until "Save Changes" is clicked)
   const [profilePhotoPreview, setProfilePhotoPreview] = useState(
-    user?.profilePhoto || user?.avatar || profilePhotoDefault
+    user?.profilePhoto || user?.avatar
   );
   const [profileVideoPreview, setProfileVideoPreview] = useState(
     user?.profileVideo || null
@@ -197,7 +196,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
       };
 
       // Add uploaded media URLs if they exist
-      if (profilePhotoPreview && profilePhotoPreview !== profilePhotoDefault) {
+      if (profilePhotoPreview) {
         updateData.avatar = profilePhotoPreview;
         updateData.profilePhoto = profilePhotoPreview;
       }
