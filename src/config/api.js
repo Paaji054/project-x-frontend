@@ -1,7 +1,7 @@
 // API Configuration
 export const API_CONFIG = {
-  // Backend runs on port 5001
-  BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001',
+  // Backend runs on port 5000
+  BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000',
   TIMEOUT: 30000,
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000,

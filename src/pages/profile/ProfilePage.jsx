@@ -86,7 +86,7 @@ const fetchProfileData = async () => {
     // Ensure all required fields have default values
     const safeUserData = {
       ...userData,
-      profilePhoto: userData.profilePhoto || userData.avatar || profilePhotoDefault,
+      profilePhoto: userData.profilePhoto || userData.avatar,
       profileVideo: userData.profileVideo || null,
       bio: userData.bio || '',
       displayName: userData.displayName || userData.username || '',

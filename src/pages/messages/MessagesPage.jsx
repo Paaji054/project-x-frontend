@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, Send, Plus, Search } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import LiveProfilePhoto from "../../components/LiveProfilePhoto";
 import { getProfileVideoUrl } from "../../utils/profileVideos";
 import themeIcon from "../../assets/theme.svg";
@@ -9,11 +10,17 @@ import { messageService, userService } from "../../services";
 import { useAuth } from "../../context/AuthContext";
 
 export default function MessagesPage({ onViewUserProfile, selectedChatUsername }) {
-  const { user } = useAuth(); // Get current user to identify message sender
+  const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const currentUserId = user?.id || user?._id;
   const [activeChat, setActiveChat] = useState(null);
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState([]);
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
   const [chatThemes, setChatThemes] = useState(() => {
     // Load chat themes from localStorage
     try {
@@ -86,6 +93,28 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
   useEffect(() => {
     fetchConversations();
   }, []);
+
+  // Check for newChat URL param or state from ShareModal
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const locationState = location.state || {};
+    
+    if (params.get('newChat') === 'true') {
+      setShowNewChatModal(true);
+      // Clear the URL param
+      navigate('/messages', { replace: true });
+    } else if (locationState?.openChatWithUsername && conversations.length > 0) {
+      // Open chat with specific user (from ShareModal)
+      const targetConvo = conversations.find(
+        convo => convo.otherUser?.username?.toLowerCase() === locationState.openChatWithUsername.toLowerCase()
+      );
+      if (targetConvo) {
+        handleChatClick(targetConvo);
+      }
+      // Clear the state
+      navigate('/messages', { replace: true, state: {} });
+    }
+  }, [location.search, location.state, navigate, conversations]);
 
   const fetchConversations = async () => {
     try {
@@ -174,12 +203,38 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
         setConversations([newConvo, ...conversations]);
         setActiveChat(newConvo);
         setMessages([]);
+        setShowNewChatModal(false);
       }
     } catch (err) {
       console.error("Error creating conversation:", err);
       alert("Failed to start conversation. Please try again.");
     }
   };
+
+  const searchUsers = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      setSearchingUsers(true);
+      const response = await userService.searchUsers(query);
+      setSearchResults(response.users || response || []);
+    } catch (err) {
+      console.error("Error searching users:", err);
+      setSearchResults([]);
+    } finally {
+      setSearchingUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    const debounce = setTimeout(() => {
+      searchUsers(searchQuery);
+    }, 300);
+    return () => clearTimeout(debounce);
+  }, [searchQuery]);
 
   // Close theme picker on outside click
   useEffect(() => {
@@ -286,7 +341,16 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
         {/* Left Side - Chat List */}
         <div className={`${activeChat ? 'hidden md:block' : 'block'} w-full md:w-96 border-r border-black dark:border-gray-800 overflow-y-auto bg-[#fffcfa] dark:bg-black`}>
           <div className="p-4 md:p-6">
-            <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Messages</h1>
+            <div className="flex items-center justify-between mb-4 md:mb-6">
+              <h1 className="text-xl md:text-2xl font-bold">Messages</h1>
+              <button
+                onClick={() => setShowNewChatModal(true)}
+                className="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors"
+                title="New chat"
+              >
+                <Plus className="w-5 h-5 text-black dark:text-white" />
+              </button>
+            </div>
 
             {/* Loading State */}
             {loadingConversations && (
@@ -518,6 +582,86 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
           </div>
         )}
       </div>
+
+      {/* New Chat Modal */}
+      {showNewChatModal && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/70 z-[100]"
+            onClick={() => setShowNewChatModal(false)}
+          />
+          <div className="fixed inset-0 z-[101] flex items-center justify-center p-4">
+            <div className="w-full max-w-md bg-white dark:bg-[#0f0f0f] border-2 border-black dark:border-gray-800 rounded-2xl shadow-2xl">
+              {/* Header */}
+              <div className="flex items-center justify-between p-5 border-b border-black dark:border-gray-800">
+                <h2 className="text-xl font-semibold text-black dark:text-white">New Chat</h2>
+                <button
+                  onClick={() => setShowNewChatModal(false)}
+                  className="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors"
+                >
+                  <ArrowLeft className="w-5 h-5 text-black dark:text-white" />
+                </button>
+              </div>
+
+              {/* Search */}
+              <div className="p-5 border-b border-black dark:border-gray-800">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search users..."
+                    className="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-[#1a1a1a] border border-black dark:border-gray-700 rounded-full text-black dark:text-white placeholder-gray-400 focus:outline-none focus:border-primary transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Users List */}
+              <div className="max-h-96 overflow-y-auto p-5 space-y-2">
+                {searchingUsers ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : searchResults.length === 0 && searchQuery ? (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <p>No users found</p>
+                  </div>
+                ) : searchQuery ? (
+                  searchResults.map((userResult) => (
+                    <button
+                      key={userResult._id || userResult.id}
+                      onClick={() => createNewConversation(userResult.username)}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    >
+                      <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
+                        <LiveProfilePhoto
+                          imageSrc={userResult.profilePhoto || userResult.avatar}
+                          videoSrc={getProfileVideoUrl(userResult.profilePhoto || userResult.avatar, userResult.username)}
+                          alt={userResult.username}
+                          className="w-12 h-12 rounded-full"
+                        />
+                      </div>
+                      <div className="flex-1 text-left min-w-0">
+                        <p className="font-semibold text-black dark:text-white truncate">
+                          {userResult.username}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                          {userResult.displayName || userResult.username}
+                        </p>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <p>Search for users to start a chat</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </main>
   );
 }

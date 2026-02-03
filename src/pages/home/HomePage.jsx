@@ -4,9 +4,11 @@ import Stories from "../../components/Stories";
 import PostCard from "../../components/PostCard";
 import Comments from "../../components/Comments";
 import { postService } from "../../services";
+import { useUserProfile } from "../../hooks/useUserProfile";
 
 export default function HomePage({ onViewUserProfile }) {
   const navigate = useNavigate();
+  const { username: currentUsername } = useUserProfile();
   const [activePostId, setActivePostId] = useState(null);
   const [postsComments, setPostsComments] = useState({});
 
@@ -172,6 +174,10 @@ export default function HomePage({ onViewUserProfile }) {
     navigate('/story/add');
   };
 
+  const handleDeletePost = (postId) => {
+    setPosts(posts.filter(p => (p.id || p._id) !== postId));
+  };
+
   return (
     <main className="flex-1 overflow-y-auto h-[calc(100vh-7.5rem)] md:h-[calc(100vh-4rem)] bg-white dark:bg-black">
       <div className="p-4 md:p-8">
@@ -211,6 +217,8 @@ export default function HomePage({ onViewUserProfile }) {
                 onCommentClick={handleCommentClick}
                 isActive={activePostId === (post.id || post._id)}
                 onViewUserProfile={onViewUserProfile}
+                onDelete={handleDeletePost}
+                currentUsername={currentUsername}
               />
             ))}
 

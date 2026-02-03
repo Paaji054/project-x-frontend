@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import PostCard from "../../components/PostCard";
@@ -6,8 +5,10 @@ import Filters from "../../components/Filters";
 import Accounts from "../../components/Accounts";
 import Comments from "../../components/Comments";
 import { searchService, postService } from "../../services";
+import { useUserProfile } from "../../hooks/useUserProfile";
 
 export default function ExplorePage({ onViewUserProfile }) {
+  const { username: currentUsername } = useUserProfile();
   const [activeTab, setActiveTab] = useState("Posts");
   const [searchTerm, setSearchTerm] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -205,6 +206,10 @@ export default function ExplorePage({ onViewUserProfile }) {
     }
   };
 
+  const handleDeletePost = (postId) => {
+    setPosts(posts.filter(p => (p.id || p._id) !== postId));
+  };
+
   return (
     <main className="flex-1 overflow-y-auto p-4 md:p-8 h-[calc(100vh-7.5rem)] md:h-[calc(100vh-4rem)] bg-white dark:bg-black">
       {/* Filters */}
@@ -306,6 +311,8 @@ export default function ExplorePage({ onViewUserProfile }) {
                 onCommentClick={handleCommentClick}
                 isActive={activePostId === (post.id || post._id)}
                 onViewUserProfile={onViewUserProfile}
+                onDelete={handleDeletePost}
+                currentUsername={currentUsername}
               />
             ))}
           </div>
