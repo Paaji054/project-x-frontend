@@ -76,7 +76,7 @@ export default function ExplorePage({ onViewUserProfile }) {
       setLoading(true);
       setError(null);
       
-      const results = await searchService.search(
+      const response = await searchService.search(
         searchQuery,
         activeTab.toLowerCase(),
         1,
@@ -84,7 +84,8 @@ export default function ExplorePage({ onViewUserProfile }) {
       );
       
       if (activeTab === "Posts") {
-        setPosts(results.posts || []);
+        // Backend returns { results: { posts: [...] } }
+        setPosts(response.results?.posts || response.posts || []);
       }
     } catch (err) {
       console.error("Error searching:", err);

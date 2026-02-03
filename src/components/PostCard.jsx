@@ -25,8 +25,8 @@ export default function PostCard({
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const postImage = postData.imageUrl || postData.image || postData.images?.[0];
-  const profileImage = author.profilePhoto || author.profilePicture || postData.profileImage;
-  const username = author.username || postData.username;
+  const profileImage = author.profilePhoto || author.avatar || author.profilePicture || postData.profileImage;
+  const username = author.username || postData.username || 'user';
   const caption = postData.caption || postData.content || "";
 
   const handleLike = async () => {

@@ -355,10 +355,22 @@ const fetchProfileData = async () => {
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.5 }}
-              className="text-black dark:text-white mb-6 text-sm md:text-base"
+              className="text-black dark:text-white mb-3 text-sm md:text-base"
             >
               {profileData?.bio || profile?.bio || "No bio yet"}
             </motion.p>
+
+            {/* Gender */}
+            {(profileData?.gender || profile?.gender) && (
+              <motion.p
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.22, duration: 0.5 }}
+                className="text-gray-600 dark:text-gray-400 mb-6 text-xs md:text-sm"
+              >
+                {profileData?.gender || profile?.gender}
+              </motion.p>
+            )}
 
             {/* Stats */}
             <motion.div

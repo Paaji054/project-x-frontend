@@ -3,9 +3,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ChevronDown, ChevronUp, MapPin, UserPlus, Smile, X, Music, Type, Filter, Edit3, Crop, Sun, Contrast, Droplet, Thermometer, Circle } from "lucide-react";
 import EmojiPickerReact from 'emoji-picker-react';
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useAuth } from "../context/AuthContext";
 import uploadIcon from "../assets/upload.svg";
 import { uploadService } from "../services/uploadService";
 import { postService } from "../services/postService";
+import { userService } from "../services/userService";
 
 export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreated }) {
   const [step, setStep] = useState("upload"); // "upload", "crop", "edit", "final"
@@ -65,6 +67,10 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
 
+  // Following users for tagging
+  const [followingUsers, setFollowingUsers] = useState([]);
+  const [loadingFollowing, setLoadingFollowing] = useState(false);
+
   const fileInputRef = useRef(null);
   const cropContainerRef = useRef(null);
   const imageRef = useRef(null);
@@ -72,6 +78,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
   const drawingCanvasRef = useRef(null);
   const mobileImageRef = useRef(null);
   const { username, profilePhoto } = useUserProfile();
+  const { user } = useAuth();
 
   const filters = [
     { name: "aden", label: "Aden" },
@@ -543,15 +550,12 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
       const postData = {
         imageUrl: uploadResponse.url,
         caption: caption,
-        category: category, // Include category
-        taggedUsers: taggedPeople.map(p => p.id || p.username).filter(Boolean),
+        category: category,
+        taggedUsers: taggedPeople.map(p => (typeof p === 'object' ? (p.uid || p.username) : p)).filter(Boolean),
         location: location,
-        collaborators: collaborators.map(c => c.id || c.username).filter(Boolean),
+        collaborators: collaborators.map(c => (typeof c === 'object' ? (c.uid || c.username) : c)).filter(Boolean),
         hideLikeCounts: hideLikeCounts,
         turnOffCommenting: turnOffCommenting,
-        music: selectedMusic,
-        filter: selectedFilter,
-        adjustments: Object.values(adjustments).some(v => v !== 0) ? adjustments : undefined
       };
 
       // Create post via API
@@ -621,6 +625,26 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
       setStep("upload");
     }
   }, [isOpen]);
+
+  // Fetch following users when modal opens
+  useEffect(() => {
+    const fetchFollowingUsers = async () => {
+      if (isOpen && user?.username && followingUsers.length === 0) {
+        try {
+          setLoadingFollowing(true);
+          const response = await userService.getUserFollowing(user.username, 1, 100);
+          const following = response?.following || response || [];
+          setFollowingUsers(Array.isArray(following) ? following : []);
+        } catch (error) {
+          console.error("Error fetching following users:", error);
+          setFollowingUsers([]);
+        } finally {
+          setLoadingFollowing(false);
+        }
+      }
+    };
+    fetchFollowingUsers();
+  }, [isOpen, user?.username, followingUsers.length]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -1675,7 +1699,12 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                             key={index}
                             className="flex items-center justify-between p-2 bg-[#0f0f0f] rounded"
                           >
-                            <span className="text-sm text-white">{tag}</span>
+                            <div className="flex items-center gap-2">
+                              {tag.avatar && (
+                                <img src={tag.avatar || tag.profilePhoto} alt="" className="w-6 h-6 rounded-full" />
+                              )}
+                              <span className="text-sm text-white">{tag.username || tag}</span>
+                            </div>
                             <button
                               onClick={() =>
                                 setTaggedPeople(taggedPeople.filter((_, i) => i !== index))
@@ -1688,17 +1717,64 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                         ))}
                       </div>
                     )}
-                    <button
-                      onClick={() => {
-                        if (tagSearch.trim() && !taggedPeople.includes(tagSearch.trim())) {
-                          setTaggedPeople([...taggedPeople, tagSearch.trim()]);
-                          setTagSearch("");
-                        }
-                      }}
-                      className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                    >
-                      Add Tag
-                    </button>
+                    
+                    {/* Following Users List */}
+                    {loadingFollowing ? (
+                      <div className="text-center py-4 text-gray-400">Loading...</div>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-sm font-semibold text-white mb-2">Following:</p>
+                        {followingUsers
+                          .filter(user => {
+                            const searchLower = tagSearch.toLowerCase();
+                            const username = user.username?.toLowerCase() || '';
+                            const displayName = user.displayName?.toLowerCase() || '';
+                            return username.includes(searchLower) || displayName.includes(searchLower);
+                          })
+                          .map((user, index) => {
+                            const isTagged = taggedPeople.some(t => 
+                              (typeof t === 'object' && t.username === user.username) || 
+                              (typeof t === 'string' && t === user.username)
+                            );
+                            return (
+                              <button
+                                key={user.uid || user.id || index}
+                                onClick={() => {
+                                  if (!isTagged) {
+                                    setTaggedPeople([...taggedPeople, user]);
+                                  }
+                                }}
+                                disabled={isTagged}
+                                className={`w-full flex items-center justify-between p-2 rounded hover:bg-[#2a2a2a] transition-colors ${
+                                  isTagged ? 'opacity-50 cursor-not-allowed' : ''
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <img 
+                                    src={user.profilePhoto || user.avatar || '/default-avatar.png'} 
+                                    alt={user.username}
+                                    className="w-8 h-8 rounded-full object-cover"
+                                  />
+                                  <div className="text-left">
+                                    <p className="text-sm text-white">{user.username}</p>
+                                    {user.displayName && (
+                                      <p className="text-xs text-gray-400">{user.displayName}</p>
+                                    )}
+                                  </div>
+                                </div>
+                                {isTagged && (
+                                  <span className="text-xs text-gray-400">Tagged</span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        {followingUsers.length === 0 && (
+                          <p className="text-sm text-gray-400 text-center py-4">
+                            No following users found
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               </>
@@ -1814,7 +1890,12 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                             key={index}
                             className="flex items-center justify-between p-2 bg-[#0f0f0f] rounded"
                           >
-                            <span className="text-sm text-white">{collab}</span>
+                            <div className="flex items-center gap-2">
+                              {(collab.avatar || collab.profilePhoto) && (
+                                <img src={collab.avatar || collab.profilePhoto} alt="" className="w-6 h-6 rounded-full" />
+                              )}
+                              <span className="text-sm text-white">{collab.username || collab}</span>
+                            </div>
                             <button
                               onClick={() =>
                                 setCollaborators(collaborators.filter((_, i) => i !== index))
@@ -1827,17 +1908,64 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                         ))}
                       </div>
                     )}
-                    <button
-                      onClick={() => {
-                        if (collabSearch.trim() && !collaborators.includes(collabSearch.trim())) {
-                          setCollaborators([...collaborators, collabSearch.trim()]);
-                          setCollabSearch("");
-                        }
-                      }}
-                      className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                    >
-                      Add Collaborator
-                    </button>
+                    
+                    {/* Following Users List */}
+                    {loadingFollowing ? (
+                      <div className="text-center py-4 text-gray-400">Loading...</div>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-sm font-semibold text-white mb-2">Following:</p>
+                        {followingUsers
+                          .filter(user => {
+                            const searchLower = collabSearch.toLowerCase();
+                            const username = user.username?.toLowerCase() || '';
+                            const displayName = user.displayName?.toLowerCase() || '';
+                            return username.includes(searchLower) || displayName.includes(searchLower);
+                          })
+                          .map((user, index) => {
+                            const isAdded = collaborators.some(c => 
+                              (typeof c === 'object' && c.username === user.username) || 
+                              (typeof c === 'string' && c === user.username)
+                            );
+                            return (
+                              <button
+                                key={user.uid || user.id || index}
+                                onClick={() => {
+                                  if (!isAdded) {
+                                    setCollaborators([...collaborators, user]);
+                                  }
+                                }}
+                                disabled={isAdded}
+                                className={`w-full flex items-center justify-between p-2 rounded hover:bg-[#2a2a2a] transition-colors ${
+                                  isAdded ? 'opacity-50 cursor-not-allowed' : ''
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <img 
+                                    src={user.profilePhoto || user.avatar || '/default-avatar.png'} 
+                                    alt={user.username}
+                                    className="w-8 h-8 rounded-full object-cover"
+                                  />
+                                  <div className="text-left">
+                                    <p className="text-sm text-white">{user.username}</p>
+                                    {user.displayName && (
+                                      <p className="text-xs text-gray-400">{user.displayName}</p>
+                                    )}
+                                  </div>
+                                </div>
+                                {isAdded && (
+                                  <span className="text-xs text-gray-400">Added</span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        {followingUsers.length === 0 && (
+                          <p className="text-sm text-gray-400 text-center py-4">
+                            No following users found
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               </>
@@ -2889,7 +3017,12 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                           key={index}
                           className="flex items-center justify-between p-2 bg-[#0f0f0f] rounded"
                         >
-                          <span className="text-sm text-white">{tag}</span>
+                          <div className="flex items-center gap-2">
+                            {(tag.avatar || tag.profilePhoto) && (
+                              <img src={tag.avatar || tag.profilePhoto} alt="" className="w-6 h-6 rounded-full" />
+                            )}
+                            <span className="text-sm text-white">{tag.username || tag}</span>
+                          </div>
                           <button
                             onClick={() =>
                               setTaggedPeople(taggedPeople.filter((_, i) => i !== index))
@@ -2902,17 +3035,64 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                       ))}
                     </div>
                   )}
-                  <button
-                    onClick={() => {
-                      if (tagSearch.trim() && !taggedPeople.includes(tagSearch.trim())) {
-                        setTaggedPeople([...taggedPeople, tagSearch.trim()]);
-                        setTagSearch("");
-                      }
-                    }}
-                    className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                  >
-                    Add Tag
-                  </button>
+                  
+                  {/* Following Users List */}
+                  {loadingFollowing ? (
+                    <div className="text-center py-4 text-gray-400">Loading...</div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-white mb-2">Following:</p>
+                      {followingUsers
+                        .filter(user => {
+                          const searchLower = tagSearch.toLowerCase();
+                          const username = user.username?.toLowerCase() || '';
+                          const displayName = user.displayName?.toLowerCase() || '';
+                          return username.includes(searchLower) || displayName.includes(searchLower);
+                        })
+                        .map((user, index) => {
+                          const isTagged = taggedPeople.some(t => 
+                            (typeof t === 'object' && t.username === user.username) || 
+                            (typeof t === 'string' && t === user.username)
+                          );
+                          return (
+                            <button
+                              key={user.uid || user.id || index}
+                              onClick={() => {
+                                if (!isTagged) {
+                                  setTaggedPeople([...taggedPeople, user]);
+                                }
+                              }}
+                              disabled={isTagged}
+                              className={`w-full flex items-center justify-between p-2 rounded hover:bg-[#2a2a2a] transition-colors ${
+                                isTagged ? 'opacity-50 cursor-not-allowed' : ''
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <img 
+                                  src={user.profilePhoto || user.avatar || '/default-avatar.png'} 
+                                  alt={user.username}
+                                  className="w-8 h-8 rounded-full object-cover"
+                                />
+                                <div className="text-left">
+                                  <p className="text-sm text-white">{user.username}</p>
+                                  {user.displayName && (
+                                    <p className="text-xs text-gray-400">{user.displayName}</p>
+                                  )}
+                                </div>
+                              </div>
+                              {isTagged && (
+                                <span className="text-xs text-gray-400">Tagged</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      {followingUsers.length === 0 && (
+                        <p className="text-sm text-gray-400 text-center py-4">
+                          No following users found
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </>
