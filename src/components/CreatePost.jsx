@@ -9,7 +9,7 @@ import { uploadService } from "../services/uploadService";
 import { postService } from "../services/postService";
 import { userService } from "../services/userService";
 
-export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreated }) {
+export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreated, communityId }) {
   const [step, setStep] = useState("upload"); // "upload", "crop", "edit", "final"
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -557,6 +557,11 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
         hideLikeCounts: hideLikeCounts,
         turnOffCommenting: turnOffCommenting,
       };
+
+      // Add communityId if posting to a community
+      if (communityId) {
+        postData.communityId = communityId;
+      }
 
       // Create post via API
       const newPost = await postService.createPost(postData);
@@ -2767,28 +2772,30 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                   </div>
                 </div>
 
-                {/* Category Selection */}
-                <div className="px-4 py-3 border-b border-gray-800">
-                  <label className="text-sm text-gray-400 mb-2 block">Category</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary"
-                  >
-                    <option value="general">General</option>
-                    <option value="fashion">Fashion</option>
-                    <option value="food">Food & Drink</option>
-                    <option value="travel">Travel</option>
-                    <option value="fitness">Fitness & Health</option>
-                    <option value="tech">Technology</option>
-                    <option value="art">Art & Design</option>
-                    <option value="music">Music</option>
-                    <option value="gaming">Gaming</option>
-                    <option value="education">Education</option>
-                    <option value="business">Business</option>
-                    <option value="lifestyle">Lifestyle</option>
-                  </select>
-                </div>
+                {/* Category Selection - Only show for regular posts (not community posts) */}
+                {!communityId && (
+                  <div className="px-4 py-3 border-b border-gray-800">
+                    <label className="text-sm text-gray-400 mb-2 block">Category</label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary"
+                    >
+                      <option value="general">General</option>
+                      <option value="fashion">Fashion</option>
+                      <option value="food">Food & Drink</option>
+                      <option value="travel">Travel</option>
+                      <option value="fitness">Fitness & Health</option>
+                      <option value="tech">Technology</option>
+                      <option value="art">Art & Design</option>
+                      <option value="music">Music</option>
+                      <option value="gaming">Gaming</option>
+                      <option value="education">Education</option>
+                      <option value="business">Business</option>
+                      <option value="lifestyle">Lifestyle</option>
+                    </select>
+                  </div>
+                )}
 
                 {/* Add Audio */}
                 <button

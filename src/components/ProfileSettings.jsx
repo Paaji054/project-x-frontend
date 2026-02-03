@@ -24,7 +24,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
     gender: user?.gender || "",
     website: user?.website || ""
   });
-  const [accountType, setAccountType] = useState(user?.accountType || "private");
+  const [accountType, setAccountType] = useState(user?.accountType || "public");
   const [notifications, setNotifications] = useState({
     likes: user?.notificationSettings?.likes ?? true,
     comments: user?.notificationSettings?.comments ?? true,
