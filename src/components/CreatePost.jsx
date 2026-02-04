@@ -564,7 +564,12 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
       }
 
       // Create post via API
-      const newPost = await postService.createPost(postData);
+      const response = await postService.createPost(postData);
+      const newPost = response?.post || response;
+
+      if (!newPost) {
+        throw new Error('Failed to create post');
+      }
 
       // Dispatch event for local updates
       window.dispatchEvent(

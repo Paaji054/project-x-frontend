@@ -72,7 +72,7 @@ export const userService = {
       const response = await api.get(API_ENDPOINTS.USERS.BY_USERNAME(username));
       if (response.success && response.data) {
         // Backend returns { success: true, data: { user: {...} } }
-        return response.data.user || response.data;
+        return response.data;
       }
       return null;
     } catch (error) {

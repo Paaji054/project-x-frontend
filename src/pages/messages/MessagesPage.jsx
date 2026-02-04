@@ -163,13 +163,19 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
   const createNewConversation = async (username) => {
     try {
       // First, fetch user ID by username
-      const user = await userService.getUserByUsername(username);
-      if (!user) {
+      const userResponse = await userService.getUserByUsername(username);
+      if (!userResponse || !userResponse.user) {
         alert("User not found");
         return;
       }
-      // Backend expects userId, not username
-      const newConvo = await messageService.createConversation(user._id);
+      const user = userResponse.user;
+      // Backend expects userId (uid), not username
+      const userId = user.uid || user._id || user.id;
+      if (!userId) {
+        alert("Unable to start conversation");
+        return;
+      }
+      const newConvo = await messageService.createConversation(userId);
       if (newConvo) {
         setConversations([newConvo, ...conversations]);
         setActiveChat(newConvo);

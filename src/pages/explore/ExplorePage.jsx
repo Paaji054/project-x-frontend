@@ -24,14 +24,15 @@ export default function ExplorePage({ onViewUserProfile }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Fetch trending or AI posts on mount
+  // Fetch trending or AI posts on mount and when category changes
   useEffect(() => {
     if (isAIEnabled) {
       fetchAIPosts();
     } else {
       fetchTrendingPosts();
     }
-  }, [isAIEnabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAIEnabled, selectedCategory]);
 
   // Search when query changes
   useEffect(() => {
@@ -46,7 +47,12 @@ export default function ExplorePage({ onViewUserProfile }) {
       setLoading(true);
       setError(null);
       const trendingPosts = await postService.getTrending();
-      setPosts(trendingPosts.posts || []);
+      let allPosts = trendingPosts.posts || [];
+      // Apply category filter if selected
+      if (selectedCategory) {
+        allPosts = allPosts.filter(post => post.category === selectedCategory);
+      }
+      setPosts(allPosts);
     } catch (err) {
       console.error("Error fetching trending posts:", err);
       setError(err.message || "Failed to load posts");
@@ -60,7 +66,12 @@ export default function ExplorePage({ onViewUserProfile }) {
       setLoading(true);
       setError(null);
       const aiPosts = await searchService.getAIPosts();
-      setPosts(aiPosts.posts || []);
+      let allPosts = aiPosts.posts || [];
+      // Apply category filter if selected
+      if (selectedCategory) {
+        allPosts = allPosts.filter(post => post.category === selectedCategory);
+      }
+      setPosts(allPosts);
     } catch (err) {
       console.error("Error fetching AI posts:", err);
       setError(err.message || "Failed to load AI posts");
@@ -85,7 +96,12 @@ export default function ExplorePage({ onViewUserProfile }) {
       
       if (activeTab === "Posts") {
         // Backend returns { results: { posts: [...] } }
-        setPosts(response.results?.posts || response.posts || []);
+        let allPosts = response.results?.posts || response.posts || [];
+        // Apply category filter if selected
+        if (selectedCategory) {
+          allPosts = allPosts.filter(post => post.category === selectedCategory);
+        }
+        setPosts(allPosts);
       }
     } catch (err) {
       console.error("Error searching:", err);
