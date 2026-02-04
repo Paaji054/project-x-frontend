@@ -85,8 +85,8 @@ export default function AddStory() {
       let mediaUrl = selectedImage.url;
       
       if (selectedImage.url.startsWith('data:')) {
-        const uploadResponse = await uploadService.uploadBase64(selectedImage.url);
-        if (!uploadResponse.success || !uploadResponse.url) {
+        const uploadResponse = await uploadService.uploadBase64(selectedImage.url, 'stories');
+        if (!uploadResponse || !uploadResponse.url) {
           throw new Error('Failed to upload image');
         }
         mediaUrl = uploadResponse.url;

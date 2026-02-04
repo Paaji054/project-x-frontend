@@ -429,11 +429,11 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
                 Website
               </label>
               <input
-                type="url"
+                type="text"
                 name="website"
                 value={formData.website}
                 onChange={handleInputChange}
-                placeholder="https://example.com"
+                placeholder="example.com or https://example.com"
                 className="w-full bg-gray-100 dark:bg-[#1a1a1a] border border-black dark:border-gray-800 rounded-lg px-4 py-3 text-black dark:text-white placeholder-gray-600 focus:outline-none focus:border-primary transition-colors"
               />
             </div>

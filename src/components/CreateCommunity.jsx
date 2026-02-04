@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Globe, Lock, Upload } from "lucide-react";
+import { toast } from "react-hot-toast";
 import { communityService } from "../services/communityService";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { COMMUNITY_CATEGORIES } from "../constants/communityCategories";
@@ -89,7 +90,7 @@ export default function CreateCommunity({ setActiveView }) {
 
     // Validate that at least one topic is selected
     if (selectedTopics.length === 0) {
-      alert("Please select at least one topic");
+      toast.error("Please select at least one topic", { duration: 3000 });
       return;
     }
 
@@ -121,9 +122,12 @@ export default function CreateCommunity({ setActiveView }) {
         
         // Show appropriate message based on community type
         if (isPrivate) {
-          alert(`Community created successfully!\n\nYour Community Code: ${communityCode}\n\nShare this code with others so they can join your private community.`);
+          toast.success(
+            `Community created successfully!\n\nYour Community Code: ${communityCode}\n\nShare this code with others so they can join your private community.`,
+            { duration: 5000 }
+          );
         } else {
-          alert('Community created successfully!');
+          toast.success('Community created successfully!', { duration: 3000 });
         }
         
         // Navigate back to communities page
