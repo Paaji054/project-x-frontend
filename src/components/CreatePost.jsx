@@ -539,16 +539,20 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
         });
       }
 
-      // Upload image to backend
+      // Determine if it's a video or image
+      const isVideo = selectedFile?.type?.startsWith('video/');
+      
+      // Upload media to backend
       const uploadResponse = await uploadService.uploadFromBase64(imageToUpload, 'posts');
 
       if (!uploadResponse?.url) {
-        throw new Error('Failed to upload image');
+        throw new Error('Failed to upload media');
       }
 
       // Create post data
       const postData = {
         imageUrl: uploadResponse.url,
+        mediaType: isVideo ? 'video' : 'image',
         caption: caption,
         category: category,
         taggedUsers: taggedPeople.map(p => (typeof p === 'object' ? (p.uid || p.username) : p)).filter(Boolean),
@@ -2777,30 +2781,28 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                   </div>
                 </div>
 
-                {/* Category Selection - Only show for regular posts (not community posts) */}
-                {!communityId && (
-                  <div className="px-4 py-3 border-b border-gray-800">
-                    <label className="text-sm text-gray-400 mb-2 block">Category</label>
-                    <select
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary"
-                    >
-                      <option value="general">General</option>
-                      <option value="fashion">Fashion</option>
-                      <option value="food">Food & Drink</option>
-                      <option value="travel">Travel</option>
-                      <option value="fitness">Fitness & Health</option>
-                      <option value="tech">Technology</option>
-                      <option value="art">Art & Design</option>
-                      <option value="music">Music</option>
-                      <option value="gaming">Gaming</option>
-                      <option value="education">Education</option>
-                      <option value="business">Business</option>
-                      <option value="lifestyle">Lifestyle</option>
-                    </select>
-                  </div>
-                )}
+                {/* Category Selection - Available for all posts */}
+                <div className="px-4 py-3 border-b border-gray-800">
+                  <label className="text-sm text-gray-400 mb-2 block">Category</label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary"
+                  >
+                    <option value="general">General</option>
+                    <option value="fashion">Fashion</option>
+                    <option value="food">Food & Drink</option>
+                    <option value="travel">Travel</option>
+                    <option value="fitness">Fitness & Health</option>
+                    <option value="tech">Technology</option>
+                    <option value="art">Art & Design</option>
+                    <option value="music">Music</option>
+                    <option value="gaming">Gaming</option>
+                    <option value="education">Education</option>
+                    <option value="business">Business</option>
+                    <option value="lifestyle">Lifestyle</option>
+                  </select>
+                </div>
 
                 {/* Add Audio */}
                 <button

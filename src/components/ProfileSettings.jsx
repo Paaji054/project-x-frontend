@@ -72,6 +72,23 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
     };
 
     fetchUserStats();
+    
+    // Listen for follow/unfollow events to update stats in real-time
+    const handleFollowUpdate = (event) => {
+      const { action } = event.detail;
+      setStats(prev => ({
+        ...prev,
+        following: action === 'follow' ? prev.following + 1 : Math.max(0, prev.following - 1)
+      }));
+    };
+    
+    window.addEventListener('userFollowed', handleFollowUpdate);
+    window.addEventListener('userUnfollowed', handleFollowUpdate);
+    
+    return () => {
+      window.removeEventListener('userFollowed', handleFollowUpdate);
+      window.removeEventListener('userUnfollowed', handleFollowUpdate);
+    };
   }, [user?.username]);
 
   const photoInputRef = useRef(null);

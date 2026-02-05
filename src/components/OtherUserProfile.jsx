@@ -142,6 +142,16 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
             stats: { ...userData.stats, followers: (userData.stats.followers || 0) + 1 }
           });
         }
+        
+        // Dispatch global event for real-time sync across all components
+        window.dispatchEvent(new CustomEvent('userFollowed', { 
+          detail: { 
+            userId: userIdToFollow, 
+            username: viewedUser,
+            action: 'follow'
+          } 
+        }));
+        window.dispatchEvent(new CustomEvent('followUpdated'));
       } else {
         // Use userId from userData instead of username
         const userIdToUnfollow = userData?.uid || userData?._id;
@@ -157,6 +167,16 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
             stats: { ...userData.stats, followers: Math.max(0, (userData.stats.followers || 0) - 1) }
           });
         }
+        
+        // Dispatch global event for real-time sync across all components
+        window.dispatchEvent(new CustomEvent('userUnfollowed', { 
+          detail: { 
+            userId: userIdToUnfollow, 
+            username: viewedUser,
+            action: 'unfollow'
+          } 
+        }));
+        window.dispatchEvent(new CustomEvent('followUpdated'));
       }
     } catch (err) {
       console.error("Error toggling follow:", err);
