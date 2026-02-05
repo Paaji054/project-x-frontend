@@ -167,7 +167,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                   >
                     <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-gray-700">
                       <img
-                        src={story.image}
+                        src={story.mediaUrl || story.image}
                         alt={story.username}
                         className="w-full h-full object-cover"
                       />
@@ -225,7 +225,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
               >
                 <div className="relative w-full aspect-[9/16] max-h-[90vh] rounded-lg overflow-hidden bg-black">
                   <img
-                    src={currentStory.image}
+                    src={currentStory.mediaUrl || currentStory.image}
                     alt={currentStory.username}
                     className="w-full h-full object-cover select-none"
                     draggable="false"
@@ -254,7 +254,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                   <div className="absolute top-4 left-4 right-4 flex items-center gap-3 z-10">
                     <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white">
                       <img
-                        src={currentStory.image}
+                        src={currentStory.author?.avatar || currentStory.user?.profilePhoto || currentStory.mediaUrl || currentStory.image}
                         alt={currentStory.username}
                         className="w-full h-full object-cover"
                       />
@@ -318,7 +318,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                   >
                     <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-gray-700">
                       <img
-                        src={story.image}
+                        src={story.mediaUrl || story.image}
                         alt={story.username}
                         className="w-full h-full object-cover"
                         loading="lazy"

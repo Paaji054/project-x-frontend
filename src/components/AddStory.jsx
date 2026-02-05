@@ -85,19 +85,24 @@ export default function AddStory() {
       let mediaUrl = selectedImage.url;
       
       if (selectedImage.url.startsWith('data:')) {
-        const uploadResponse = await uploadService.uploadBase64(selectedImage.url, 'stories');
-        if (!uploadResponse || !uploadResponse.url) {
+        // Use uploadFromBase64 which matches the backend endpoint
+        const uploadResponse = await uploadService.uploadFromBase64(selectedImage.url, 'stories');
+        if (!uploadResponse?.url) {
           throw new Error('Failed to upload image');
         }
         mediaUrl = uploadResponse.url;
       }
 
-      // Create story
-      await storyService.createStory({
+      // Create story with the uploaded URL
+      const storyResponse = await storyService.createStory({
         mediaUrl,
         mediaType: 'image',
         caption: textValue || ''
       });
+
+      if (!storyResponse) {
+        throw new Error('Failed to create story');
+      }
 
       toast.success('Story shared successfully!');
       handleClose();

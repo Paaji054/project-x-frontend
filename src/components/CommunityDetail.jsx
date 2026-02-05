@@ -14,6 +14,7 @@ import { useUserProfile } from "../hooks/useUserProfile";
 import { communityService } from "../services/communityService";
 import { postService } from "../services/postService";
 import CommunitySettings from "./CommunitySettings";
+import CreatePost from "./CreatePost";
 
 export default function CommunityDetail({ communityId, onViewUserProfile }) {
   const navigate = useNavigate();
@@ -344,42 +345,33 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
 
   const handlePostCreated = async (postData) => {
     try {
-      // For now, just add post optimistically (API endpoint may not exist yet)
-      const newPost = {
-        id: 'post-' + Date.now(),
-        username: username,
-        avatar: null, // Will be fetched from user profile
-        title: postData.title || "New Post",
-        content: postData.content || "",
-        category: postData.category || null,
-        image: postData.image || null,
-        imageUrl: postData.image || null,
-        likes: 0,
-        likesCount: 0,
-        comments: 0,
-        commentsCount: 0,
-        commentsList: [],
-        isLiked: false,
-        liked: false,
-        createdAt: new Date().toISOString(),
-      };
-
-      // Update local state
-      setPosts(prev => [newPost, ...prev]);
-      setPostsLikes(prev => ({
-        ...prev,
-        [newPost.id]: {
-          liked: false,
-          count: 0
-        }
-      }));
-
+      // Post was already created by CreatePost component, just refresh the posts list
       setIsCreatePostOpen(false);
+      
+      // Refresh community posts from backend
+      const actualCommunityId = community?._id || community?.id;
+      if (actualCommunityId) {
+        const postsData = await communityService.getCommunityPosts(actualCommunityId);
+        setPosts(postsData?.posts || []);
+        
+        // Update likes state
+        if (postsData?.posts) {
+          const likes = {};
+          postsData.posts.forEach(post => {
+            likes[post.id] = {
+              liked: post.liked || post.isLiked || false,
+              count: post.likesCount || post.likes || 0
+            };
+          });
+          setPostsLikes(likes);
+        }
+      }
+      
       // Force re-render by updating refresh key
       setRefreshKey(prev => prev + 1);
     } catch (err) {
-      console.error('Error creating post:', err);
-      setError('Failed to create post');
+      console.error('Error refreshing posts:', err);
+      setError('Failed to refresh posts');
     }
   };
 
@@ -851,210 +843,12 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
       )}
 
       {/* Create Post Modal */}
-      <CreateCommunityPost
+      <CreatePost
         isOpen={isCreatePostOpen}
         onClose={() => setIsCreatePostOpen(false)}
         onPostCreated={handlePostCreated}
-        community={community}
+        communityId={community?._id || community?.id}
       />
-    </div>
-  );
-}
-
-// Wrapper component for CreatePost to handle community posts
-function CreateCommunityPost({ isOpen, onClose, onPostCreated, community }) {
-  const [step, setStep] = useState("upload");
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const fileInputRef = useRef(null);
-
-  // Available categories (can use community topics or general categories)
-  const categories = community?.topics || [
-    "Discussion",
-    "Question",
-    "Showcase",
-    "Tutorial",
-    "News",
-    "Announcement",
-  ];
-
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-        setStep("caption");
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handlePost = () => {
-    if (onPostCreated && title.trim()) {
-      onPostCreated({
-        title: title.trim(),
-        content: content.trim(),
-        category: selectedCategory,
-        image: imagePreview,
-      });
-    }
-    handleClose();
-  };
-
-  const handleClose = () => {
-    setStep("upload");
-    setTitle("");
-    setContent("");
-    setSelectedCategory(null);
-    setImagePreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    onClose();
-  };
-
-  // Get drafts for this community - make it reactive
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/80 backdrop-blur-sm"
-        onClick={handleClose}
-      />
-
-      {/* Modal Content */}
-      <div className="relative z-[101] w-full max-w-2xl bg-[#0f0f0f] rounded-xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-800">
-          <h2 className="text-xl font-semibold text-white">Create Post</h2>
-          <button
-            onClick={handleClose}
-            className="text-gray-400 hover:text-white transition p-2 hover:bg-gray-800 rounded-full"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {step === "upload" && (
-            <div className="space-y-4">
-              <label className="block">
-                <span className="text-white font-medium mb-2 block">Upload Image (Optional)</span>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-12 border-2 border-dashed border-gray-700 rounded-lg hover:border-primary transition text-gray-400 hover:text-white"
-                >
-                  <div className="flex flex-col items-center gap-2">
-                    <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span>Click to upload an image</span>
-                  </div>
-                </button>
-              </label>
-
-              {imagePreview && (
-                <div className="w-full aspect-[4/3] rounded-lg overflow-hidden bg-black">
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setStep("caption")}
-                  className="flex-1 px-6 py-3 bg-primary hover:bg-primary-700 text-white rounded-lg font-medium transition"
-                >
-                  {imagePreview ? "Continue to Post Details" : "Skip Image & Continue"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === "caption" && (
-            <div className="space-y-4">
-              {imagePreview && (
-                <div className="w-full aspect-[4/3] rounded-lg overflow-hidden bg-black">
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-white font-medium mb-2">Post Title *</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Enter post title..."
-                  className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-white font-medium mb-2">Post Content</label>
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="What's on your mind? (Optional)"
-                  className="w-full min-h-[150px] px-4 py-3 bg-[#1a1a1a] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-white font-medium mb-3">Category (Optional)</label>
-                <div className="flex flex-wrap gap-2">
-                  {categories.map((category) => (
-                    <button
-                      key={category}
-                      onClick={() => setSelectedCategory(
-                        selectedCategory === category ? null : category
-                      )}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition ${selectedCategory === category
-                        ? "bg-primary text-white"
-                        : "bg-[#1a1a1a] text-gray-300 border border-gray-700 hover:border-primary/50"
-                        }`}
-                    >
-                      {category}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 pt-2">
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setStep("upload")}
-                    className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={handlePost}
-                    disabled={!title.trim()}
-                    className="flex-1 px-6 py-3 bg-primary hover:bg-primary-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
-                  >
-                    Post
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

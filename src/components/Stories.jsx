@@ -25,10 +25,11 @@ export default function Stories({ onAddStory }) {
     try {
       setLoading(true);
       const data = await storyService.getStories();
-      // Ensure all stories have consistent id field
+      // Ensure all stories have consistent id and image fields
       const normalizedStories = (data || []).map(story => ({
         ...story,
         id: story._id || story.id,
+        image: story.mediaUrl || story.image, // Map mediaUrl to image for StoryViewer
       }));
       setStories(normalizedStories);
     } catch (err) {
