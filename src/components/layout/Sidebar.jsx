@@ -134,7 +134,7 @@ export default function Sidebar({ onLogout }) {
               key={i}
               to={item.value}
               className={({ isActive }) =>
-                `relative w-full rounded-2xl p-[3px] border ${isActive ? "border-transparent" : "dark:border-gray-600 border-black"} ${isActive ? "bg-gradient-to-r from-primary-400 via-primary to-primary-700" : "hover:border-transparent hover:bg-gradient-to-r hover:from-primary-400 hover:via-primary hover:to-primary-700"} transition-all duration-300 block`
+                `relative w-full rounded-2xl p-[3px] border ${isActive ? "border-transparent" : "dark:border-gray-600 border-black"} ${isActive ? "bg-gradient-to-r from-red-600 via-red-700 to-red-800" : "hover:border-transparent hover:bg-gradient-to-r hover:from-red-600 hover:via-red-700 hover:to-red-800"} transition-all duration-300 block`
               }
             >
               {({ isActive }) => (
@@ -144,7 +144,7 @@ export default function Sidebar({ onLogout }) {
                   ) : (
                     <img src={item.icon} className="h-5 w-5 invert dark:invert-0" alt={item.label} />
                   )}
-                  <span className={`${isActive ? "text-transparent bg-clip-text bg-gradient-to-r from-primary-400 via-primary to-primary-700" : ""}`}>
+                  <span className={`${isActive ? "text-transparent bg-clip-text bg-gradient-to-r from-red-600 via-red-700 to-red-800" : ""}`}>
                     {item.label}
                   </span>
                 </span>
@@ -155,14 +155,14 @@ export default function Sidebar({ onLogout }) {
 
         {/* Logout */}
         <button
-          className="group relative w-full rounded-2xl p-[3px] border dark:border-gray-600 border-black hover:border-transparent hover:bg-gradient-to-r hover:from-primary-400 hover:via-primary hover:to-primary-700 transition-all duration-300 mt-6"
+          className="group relative w-full rounded-2xl p-[3px] border dark:border-gray-600 border-black hover:border-transparent hover:bg-gradient-to-r hover:from-red-600 hover:via-red-700 hover:to-red-800 transition-all duration-300 mt-6"
           onClick={handleLogoutClick}
           onMouseEnter={() => setIsLogoutHovered(true)}
           onMouseLeave={() => setIsLogoutHovered(false)}
         >
           <span className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-white dark:bg-[#0f0f0f]">
             <img src={logoutIcon} className="h-5 w-5 invert dark:invert-0" alt="Logout" />
-            <span className="text-black dark:text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-primary-400 group-hover:via-primary group-hover:to-primary-700 transition-all duration-300">
+            <span className="text-black dark:text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-red-600 group-hover:via-red-700 group-hover:to-red-800 transition-all duration-300">
               Logout
             </span>
           </span>

@@ -63,14 +63,14 @@ export default function MobileNav() {
                       `}
                       animate={{
                         background: active
-                          ? "linear-gradient(135deg, #fb923c 0%, #f97316 50%, #ea580c 100%)"
-                          : "linear-gradient(135deg, rgba(251, 146, 60, 0.2) 0%, rgba(249, 115, 22, 0.2) 50%, rgba(234, 88, 12, 0.2) 100%)",
+                          ? "linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #991b1b 100%)"
+                          : "linear-gradient(135deg, rgba(220, 38, 38, 0.2) 0%, rgba(185, 28, 28, 0.2) 50%, rgba(153, 27, 27, 0.2) 100%)",
                       }}
                       transition={{ duration: 0.4, ease: "easeOut" }}
                       style={{
                         filter: active
-                          ? "drop-shadow(0 0 10px rgba(251, 146, 60, 0.5)) drop-shadow(0 0 20px rgba(249, 115, 22, 0.4)) drop-shadow(0 0 30px rgba(234, 88, 12, 0.3))"
-                          : "drop-shadow(0 0 5px rgba(251, 146, 60, 0.15))",
+                          ? "drop-shadow(0 0 10px rgba(220, 38, 38, 0.5)) drop-shadow(0 0 20px rgba(185, 28, 28, 0.4)) drop-shadow(0 0 30px rgba(153, 27, 27, 0.3))"
+                          : "drop-shadow(0 0 5px rgba(220, 38, 38, 0.15))",
                       }}
                     >
                       {/* Inner Circle */}
@@ -107,7 +107,7 @@ export default function MobileNav() {
                           exit={{ opacity: 0 }}
                           transition={{ duration: 0.3 }}
                           style={{
-                            background: "radial-gradient(circle at center, rgba(251, 146, 60, 0.12) 0%, transparent 70%)",
+                            background: "radial-gradient(circle at center, rgba(220, 38, 38, 0.12) 0%, transparent 70%)",
                           }}
                         />
                       )}
@@ -127,7 +127,7 @@ export default function MobileNav() {
                           ease: "easeInOut",
                         }}
                         style={{
-                          border: "2px solid rgba(251, 146, 60, 0.35)",
+                          border: "2px solid rgba(220, 38, 38, 0.35)",
                         }}
                       />
                     )}
