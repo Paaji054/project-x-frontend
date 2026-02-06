@@ -18,7 +18,7 @@ export default function AuthCallback() {
 
       if (tokensParam) {
         try {
-          const { accessToken, refreshToken } = JSON.parse(decodeURIComponent(tokensParam));
+          const { accessToken, refreshToken, needsUsername } = JSON.parse(decodeURIComponent(tokensParam));
           
           // Store tokens
           tokenManager.setAccessToken(accessToken);
@@ -28,6 +28,14 @@ export default function AuthCallback() {
           const expiryTime = Date.now() + (2 * 60 * 60 * 1000);
           localStorage.setItem('tokenExpiry', expiryTime.toString());
           localStorage.setItem('authToken', accessToken);
+          
+          // Check if user needs to set username (Google OAuth new users)
+          if (needsUsername) {
+            // Store flag temporarily to prevent direct access bypass
+            sessionStorage.setItem('pendingUsernameSetup', 'true');
+            window.location.href = '/set-username';
+            return;
+          }
           
           // Fetch user data
           const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001'}/api/auth/me`, {

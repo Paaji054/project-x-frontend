@@ -18,6 +18,7 @@ import AnalyticsPage from "./pages/analytics/AnalyticsPage";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import AuthCallback from "./pages/auth/AuthCallback";
+import SetUsername from "./pages/auth/SetUsername";
 import CreatePost from "./components/CreatePost";
 import CommunitiesPage from "./pages/communities/CommunitiesPage";
 import CreateCommunity from "./components/CreateCommunity";
@@ -189,8 +190,9 @@ export default function App() {
       <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
       <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
       
-      {/* OAuth Callback - Special handling */}
+      {/* OAuth Callback & Username Setup - Special handling */}
       <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/set-username" element={<SetUsername />} />
 
       {/* Protected Routes - Require authentication */}
       <Route path="/*" element={
