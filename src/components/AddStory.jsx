@@ -1,14 +1,17 @@
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, X, Type, Sparkles, Image as ImageIcon, Camera, Loader2 } from "lucide-react";
+import { ArrowLeft, X, Type, Sparkles, Image as ImageIcon, Camera, Loader2, UserPlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import logo from "../assets/logo.svg";
 import { storyService } from "../services/storyService";
 import { uploadService } from "../services/uploadService";
+import { userService } from "../services";
+import { useUserProfile } from "../hooks/useUserProfile";
 import { toast } from "react-hot-toast";
 
 export default function AddStory() {
   const navigate = useNavigate();
+  const { username } = useUserProfile();
   const [step, setStep] = useState("select"); // "select", "edit"
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -19,6 +22,10 @@ export default function AddStory() {
   const [textColor, setTextColor] = useState("#FFFFFF");
   const [filter, setFilter] = useState("none");
   const [isUploading, setIsUploading] = useState(false);
+  const [showTagModal, setShowTagModal] = useState(false);
+  const [taggedPeople, setTaggedPeople] = useState([]);
+  const [followingList, setFollowingList] = useState([]);
+  const [loadingFollowing, setLoadingFollowing] = useState(false);
   const imageInputRef = useRef(null);
 
   const filters = [
@@ -37,6 +44,24 @@ export default function AddStory() {
   ];
 
   const stickers = ["❤️", "🔥", "😍", "😎", "💯", "⭐", "🎉", "👑", "💪", "✨", "🙌", "🎊"];
+
+  const fetchFollowing = async () => {
+    if (followingList.length > 0) return; // Already loaded
+    if (!username) {
+      toast.error('Please login to tag people');
+      return;
+    }
+    setLoadingFollowing(true);
+    try {
+      const response = await userService.getUserFollowing(username);
+      setFollowingList(response?.following || []);
+    } catch (error) {
+      console.error('Failed to fetch following:', error);
+      toast.error('Failed to load following list');
+    } finally {
+      setLoadingFollowing(false);
+    }
+  };
 
   const handleImageSelect = (image) => {
     setSelectedImage(image);
@@ -97,7 +122,8 @@ export default function AddStory() {
       const storyResponse = await storyService.createStory({
         mediaUrl,
         mediaType: 'image',
-        caption: textValue || ''
+        caption: textValue || '',
+        taggedUsers: taggedPeople.map(p => (typeof p === 'object' ? (p.uid || p._id || p.username) : p)).filter(Boolean)
       });
 
       if (!storyResponse) {
@@ -122,6 +148,8 @@ export default function AddStory() {
     setShowFilters(false);
     setShowText(false);
     setShowStickers(false);
+    setShowTagModal(false);
+    setTaggedPeople([]);
     setTextValue("");
     setTextColor("#FFFFFF");
     setFilter("none");
@@ -272,11 +300,29 @@ export default function AddStory() {
               setShowStickers(!showStickers);
               setShowText(false);
               setShowFilters(false);
+              setShowTagModal(false);
             }}
             className={`p-3 rounded-full transition ${showStickers ? "bg-primary" : "bg-white/20 hover:bg-white/30"
               }`}
           >
             <Sparkles className="w-6 h-6 text-white" />
+          </button>
+
+          {/* Tag People Tool */}
+          <button
+            onClick={() => {
+              setShowTagModal(!showTagModal);
+              setShowStickers(false);
+              setShowText(false);
+              setShowFilters(false);
+              if (!showTagModal) {
+                fetchFollowing();
+              }
+            }}
+            className={`p-3 rounded-full transition ${showTagModal ? "bg-primary" : "bg-white/20 hover:bg-white/30"
+              }`}
+          >
+            <UserPlus className="w-6 h-6 text-white" />
           </button>
         </div>
 
@@ -359,6 +405,93 @@ export default function AddStory() {
                     {sticker}
                   </button>
                 ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Tag People Modal */}
+        <AnimatePresence>
+          {showTagModal && (
+            <motion.div
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              className="px-4 pb-4"
+            >
+              <div className="bg-[#1a1a1a] rounded-lg border border-gray-700 p-4 max-h-60 overflow-y-auto">
+                <h3 className="text-white font-semibold mb-3">Tag People</h3>
+                
+                {/* Tagged People */}
+                {taggedPeople.length > 0 && (
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {taggedPeople.map((person, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 bg-gray-800 rounded-full px-3 py-1"
+                      >
+                        <span className="text-sm text-white">{person.username || person}</span>
+                        <button
+                          onClick={() => setTaggedPeople(taggedPeople.filter((_, i) => i !== index))}
+                          className="text-gray-400 hover:text-white"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Following List */}
+                {loadingFollowing ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                  </div>
+                ) : followingList.length === 0 ? (
+                  <p className="text-gray-400 text-sm text-center py-4">
+                    Follow people to tag them in your stories
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {followingList.map((user) => {
+                      const isTagged = taggedPeople.some(t => 
+                        (typeof t === 'object' ? (t.uid || t._id || t.username) : t) === (user.uid || user._id || user.username)
+                      );
+                      return (
+                        <button
+                          key={user.uid || user._id || user.username}
+                          onClick={() => {
+                            if (isTagged) {
+                              setTaggedPeople(taggedPeople.filter(t => 
+                                (typeof t === 'object' ? (t.uid || t._id || t.username) : t) !== (user.uid || user._id || user.username)
+                              ));
+                            } else {
+                              setTaggedPeople([...taggedPeople, user]);
+                            }
+                          }}
+                          className="w-full flex items-center gap-3 p-2 hover:bg-gray-800 rounded-lg transition"
+                        >
+                          <img
+                            src={user.profilePhoto || user.avatar || '/default-avatar.png'}
+                            alt={user.username}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                          <div className="flex-1 text-left">
+                            <p className="text-white text-sm font-medium">{user.username}</p>
+                            <p className="text-gray-400 text-xs">{user.displayName || user.username}</p>
+                          </div>
+                          {isTagged && (
+                            <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </motion.div>
           )}

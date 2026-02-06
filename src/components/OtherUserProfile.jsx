@@ -68,7 +68,15 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
       if (userPosts.status === 'fulfilled') {
         console.log('fetchUserProfile: Posts data:', userPosts.value);
         const postsArray = userPosts.value?.posts || [];
-        setPosts(Array.isArray(postsArray) ? postsArray : []);
+        const isPrivate = userPosts.value?.isPrivate || false;
+        const isFollowing = userPosts.value?.isFollowing !== undefined ? userPosts.value.isFollowing : user?.isFollowing || false;
+        
+        // If account is private and not following, show empty posts
+        if (isPrivate && !isFollowing && user?.accountType === 'private') {
+          setPosts([]);
+        } else {
+          setPosts(Array.isArray(postsArray) ? postsArray : []);
+        }
       } else {
         console.error('Error fetching posts:', userPosts.reason);
         setPosts([]);
@@ -412,24 +420,42 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
           transition={{ delay: 0.35, duration: 0.5 }}
           className="grid grid-cols-3 gap-1 md:gap-2"
         >
-          {posts.map((post, index) => (
-            <motion.div
-              key={post.id || post._id}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.4 + index * 0.03, duration: 0.4 }}
-              onClick={() => handlePostClick(post)}
-              className="aspect-square overflow-hidden bg-gray-200 dark:bg-gray-900 cursor-pointer group border-2 border-black dark:border-gray-800 transition-all"
-            >
-              <img
-                src={post.imageUrl || post.image}
-                alt={`Post ${(post.id || post._id) + 1}`}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                loading="lazy"
-                decoding="async"
-              />
-            </motion.div>
-          ))}
+          {userData?.accountType === 'private' && !isFollowing && posts.length === 0 ? (
+            <div className="col-span-3 flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-20 h-20 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center mb-4">
+                <svg className="w-10 h-10 text-gray-400 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold mb-2 text-gray-800 dark:text-gray-200">This Account is Private</h3>
+              <p className="text-gray-600 dark:text-gray-400 max-w-sm">
+                Follow this account to see their photos and videos.
+              </p>
+            </div>
+          ) : posts.length === 0 ? (
+            <div className="col-span-3 flex flex-col items-center justify-center py-16 text-center">
+              <p className="text-gray-600 dark:text-gray-400">No posts yet</p>
+            </div>
+          ) : (
+            posts.map((post, index) => (
+              <motion.div
+                key={post.id || post._id}
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.4 + index * 0.03, duration: 0.4 }}
+                onClick={() => handlePostClick(post)}
+                className="aspect-square overflow-hidden bg-gray-200 dark:bg-gray-900 cursor-pointer group border-2 border-black dark:border-gray-800 transition-all"
+              >
+                <img
+                  src={post.imageUrl || post.image}
+                  alt={`Post ${(post.id || post._id) + 1}`}
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </motion.div>
+            ))
+          )}
         </motion.div>
       </div>
 
