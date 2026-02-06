@@ -15,7 +15,8 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
   const [imagePreview, setImagePreview] = useState(null);
   const [croppedImage, setCroppedImage] = useState(null);
   const [editedImage, setEditedImage] = useState(null);
-  const [aspectRatio, setAspectRatio] = useState("9:16"); // Changed default to 9:16 for mobile
+  // For community posts, default to original aspect ratio to prevent auto-crop
+  const [aspectRatio, setAspectRatio] = useState(communityId ? "original" : "9:16");
   const [cropData, setCropData] = useState({ x: 0, y: 0, zoom: 1 });
   const [imageDimensions, setImageDimensions] = useState({ width: 1000, height: 1000 });
   const [containerDimensions, setContainerDimensions] = useState({ width: 600, height: 600 });
@@ -216,9 +217,17 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
-        // Desktop goes to crop, mobile stays in gallery
+        // For community posts, skip crop step and go directly to edit
+        // Desktop goes to crop (or edit for community), mobile stays in gallery
         if (window.innerWidth >= 768) {
-          setStep("crop");
+          if (communityId) {
+            // Community posts: skip crop, go to edit with original image
+            setCroppedImage(reader.result);
+            setStep("edit");
+          } else {
+            // Regular posts: go to crop
+            setStep("crop");
+          }
         } else {
           setMobileStep("gallery");
         }
@@ -2016,6 +2025,10 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                     if (!imageUrl) return;
                     if (!imagePreview && selectedGalleryImage?.url) {
                       setImagePreview(selectedGalleryImage.url);
+                    }
+                    // For community posts, set cropped image to skip crop step
+                    if (communityId) {
+                      setCroppedImage(imageUrl);
                     }
                     setMobileStep("edit");
                   }}
