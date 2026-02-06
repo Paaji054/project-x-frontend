@@ -665,14 +665,22 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
                     <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 leading-relaxed">{post.content}</p>
                   )}
 
-                  {/* Post Image (if exists) - 4:3 aspect ratio */}
-                  {post.image && (
+                  {/* Post Media (Image or Video) - 4:3 aspect ratio */}
+                  {(post.image || post.imageUrl) && (
                     <div className="w-full aspect-[4/3] rounded-lg overflow-hidden bg-black">
-                      <img
-                        src={post.image}
-                        alt={post.title}
-                        className="w-full h-full object-cover"
-                      />
+                      {post.mediaType === 'video' ? (
+                        <video
+                          src={post.image || post.imageUrl}
+                          controls
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <img
+                          src={post.image || post.imageUrl}
+                          alt={post.title || 'Post'}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
                     </div>
                   )}
 
