@@ -143,12 +143,24 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
         }
         await userService.followUser(userIdToFollow);
         
-        // Update follower count
-        if (userData?.stats) {
-          setUserData({
-            ...userData,
-            stats: { ...userData.stats, followers: (userData.stats.followers || 0) + 1 }
-          });
+        // Refetch stats from backend to get accurate counts
+        try {
+          const updatedStats = await userService.getUserStats(viewedUser);
+          if (updatedStats && userData) {
+            setUserData({
+              ...userData,
+              stats: updatedStats
+            });
+          }
+        } catch (statsError) {
+          console.error('Error fetching updated stats:', statsError);
+          // Fallback to manual increment if stats fetch fails
+          if (userData?.stats) {
+            setUserData({
+              ...userData,
+              stats: { ...userData.stats, followers: (userData.stats.followers || 0) + 1 }
+            });
+          }
         }
         
         // Dispatch global event for real-time sync across all components
@@ -168,12 +180,24 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
         }
         await userService.unfollowUser(userIdToUnfollow);
         
-        // Update follower count
-        if (userData?.stats) {
-          setUserData({
-            ...userData,
-            stats: { ...userData.stats, followers: Math.max(0, (userData.stats.followers || 0) - 1) }
-          });
+        // Refetch stats from backend to get accurate counts
+        try {
+          const updatedStats = await userService.getUserStats(viewedUser);
+          if (updatedStats && userData) {
+            setUserData({
+              ...userData,
+              stats: updatedStats
+            });
+          }
+        } catch (statsError) {
+          console.error('Error fetching updated stats:', statsError);
+          // Fallback to manual decrement if stats fetch fails
+          if (userData?.stats) {
+            setUserData({
+              ...userData,
+              stats: { ...userData.stats, followers: Math.max(0, (userData.stats.followers || 0) - 1) }
+            });
+          }
         }
         
         // Dispatch global event for real-time sync across all components
