@@ -190,7 +190,8 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
       console.error("Error toggling follow:", err);
       // Revert on error
       setIsFollowing(previousFollowingState);
-      alert("Failed to update follow status. Please try again.");
+      const errorMessage = err?.message || err?.error?.message || "Failed to update follow status. Please try again.";
+      alert(errorMessage);
     }
   };
 
@@ -219,7 +220,8 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
       ));
     } catch (err) {
       console.error("Error following user:", err);
-      alert("Failed to follow user. Please try again.");
+      const errorMessage = err?.message || err?.error?.message || "Failed to follow user. Please try again.";
+      alert(errorMessage);
     }
   };
 
@@ -238,7 +240,8 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
       ));
     } catch (err) {
       console.error("Error unfollowing user:", err);
-      alert("Failed to unfollow user. Please try again.");
+      const errorMessage = err?.message || err?.error?.message || "Failed to unfollow user. Please try again.";
+      alert(errorMessage);
     }
   };
 
