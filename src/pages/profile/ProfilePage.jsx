@@ -170,8 +170,8 @@ const fetchProfileData = async () => {
     setFollowersModalType("followers");
     setFollowersModalOpen(true);
     
-    // Lazy load followers when modal opens
-    if (followersList.length === 0 && user?.username) {
+    // Always fetch fresh followers data when modal opens
+    if (user?.username) {
       try {
         const followersData = await userService.getUserFollowers(user.username);
         setFollowersList(followersData?.followers || followersData || []);
@@ -185,8 +185,8 @@ const fetchProfileData = async () => {
     setFollowersModalType("following");
     setFollowersModalOpen(true);
     
-    // Lazy load following when modal opens
-    if (followingList.length === 0 && user?.username) {
+    // Always fetch fresh following data when modal opens
+    if (user?.username) {
       try {
         const followingData = await userService.getUserFollowing(user.username);
         setFollowingList(followingData?.following || followingData || []);
@@ -209,23 +209,7 @@ const fetchProfileData = async () => {
       // Trigger event to refresh stats in sidebar
       window.dispatchEvent(new CustomEvent('followUpdated'));
       
-      // Update followers list (if following back)
-      setFollowersList(followersList.map(user =>
-        (user.uid === userId || user.id === userId) ? { ...user, isFollowing: true } : user
-      ));
-
-      // Add to following list if not already there
-      const isInFollowing = followingList.find(u => (u.uid === userId || u.id === userId));
-      if (!isInFollowing) {
-        const userToAdd = followersList.find(u => (u.uid === userId || u.id === userId));
-        if (userToAdd) {
-          setFollowingList([...followingList, { ...userToAdd, isFollowing: true }]);
-        }
-      } else {
-        setFollowingList(followingList.map(user =>
-          (user.uid === userId || user.id === userId) ? { ...user, isFollowing: true } : user
-        ));
-      }
+      // Don't update lists - will refresh on page reload or modal reopen
     } catch (err) {
       console.error("Error following user:", err);
       alert(err.message || "Failed to follow user. Please try again.");
@@ -245,15 +229,7 @@ const fetchProfileData = async () => {
       // Trigger event to refresh stats in sidebar
       window.dispatchEvent(new CustomEvent('followUpdated'));
       
-      // Update followers list
-      setFollowersList(followersList.map(user =>
-        (user.uid === userId || user.id === userId) ? { ...user, isFollowing: false } : user
-      ));
-
-      // Update following list
-      setFollowingList(followingList.map(user =>
-        (user.uid === userId || user.id === userId) ? { ...user, isFollowing: false } : user
-      ));
+      // Don't update lists - will refresh on page reload or modal reopen
     } catch (err) {
       console.error("Error unfollowing user:", err);
       alert(err.message || "Failed to unfollow user. Please try again.");
