@@ -84,6 +84,7 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
 
   // Fetch conversations on mount
   useEffect(() => {
+    console.log('MessagesPage mounted, fetching conversations...');
     fetchConversations();
   }, []);
 
@@ -91,12 +92,24 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
     try {
       setLoadingConversations(true);
       setError(null);
+      console.log('Fetching conversations...');
       // Use skip-based pagination instead of page-based
       const convos = await messageService.getConversations(20, 0);
-      setConversations(convos || []);
+      console.log('Conversations received:', convos);
+      
+      if (!Array.isArray(convos)) {
+        console.error('Conversations is not an array:', convos);
+        setConversations([]);
+        setError('Invalid data received from server');
+        return;
+      }
+      
+      setConversations(convos);
+      console.log(`Loaded ${convos.length} conversations`);
     } catch (err) {
       console.error("Error fetching conversations:", err);
-      setError(err.message || "Failed to load conversations");
+      setError(err.message || "Failed to load conversations. Please try refreshing the page.");
+      setConversations([]);
     } finally {
       setLoadingConversations(false);
     }
@@ -309,10 +322,28 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
             )}
 
             {/* Empty State */}
-            {!loadingConversations && conversations.length === 0 && (
+            {!loadingConversations && !error && conversations.length === 0 && (
               <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                <p>No conversations yet</p>
-                <p className="text-sm mt-2">Start chatting with someone!</p>
+                <div className="mb-4">
+                  <svg 
+                    className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-700" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={1.5}
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    />
+                  </svg>
+                </div>
+                <p className="font-semibold text-lg mb-2">No conversations yet</p>
+                <p className="text-sm mt-2 mb-4">Start chatting with someone!</p>
+                <p className="text-xs text-gray-400 dark:text-gray-600">
+                  Visit a user's profile to send them a message
+                </p>
               </div>
             )}
 

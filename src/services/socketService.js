@@ -137,9 +137,110 @@ class SocketService {
   }
 
   /**
-   * Send a message (updated to match backend)
+   * PRODUCTION-GRADE: Send a message with acknowledgment and retry logic
+   * @param {String} chatId - Chat/conversation ID
+   * @param {String} content - Message content
+   * @param {String} type - Message type (text, image, voice, etc.)
+   * @param {Object} options - Additional options
+   * @returns {Promise} Resolves with server response (messageId, isDuplicate)
    */
-  sendMessage(chatId, content, type = 'text') {
+  sendMessage(chatId, content, type = 'text', options = {}) {
+    return new Promise((resolve, reject) => {
+      if (!this.socket || !this.connected) {
+        return reject(new Error('Socket not connected'));
+      }
+
+      // Generate UUID for idempotent processing (prevents duplicates)
+      const clientMessageId = options.clientMessageId || this.generateUUID();
+      const tempId = options.tempId || `temp_${Date.now()}`;
+
+      // Message payload
+      const messageData = {
+        chatId,
+        content,
+        type,
+        clientMessageId, // PRODUCTION-GRADE: UUID for deduplication
+        tempId, // For optimistic UI updates
+        replyTo: options.replyTo || null,
+        duration: options.duration || null,
+        fileSize: options.fileSize || null,
+      };
+
+      // PRODUCTION-GRADE: Acknowledgment with timeout and retry
+      const timeout = options.timeout || 10000; // 10 seconds default
+      const maxRetries = options.maxRetries || 3;
+      let attempt = 0;
+
+      const sendAttempt = () => {
+        attempt++;
+        console.log(`📤 Sending message (attempt ${attempt}/${maxRetries})...`, { chatId, clientMessageId });
+
+        const timeoutId = setTimeout(() => {
+          console.warn(`⏱️ Message acknowledgment timeout (attempt ${attempt})`);
+          
+          if (attempt < maxRetries) {
+            // Exponential backoff: 1s, 2s, 4s
+            const delay = Math.pow(2, attempt - 1) * 1000;
+            console.log(`🔄 Retrying in ${delay}ms...`);
+            setTimeout(sendAttempt, delay);
+          } else {
+            reject(new Error('Message send timeout after max retries'));
+          }
+        }, timeout);
+
+        // Send with acknowledgment callback
+        this.socket.emit('send_message', messageData, (response) => {
+          clearTimeout(timeoutId);
+
+          if (response.success) {
+            console.log('✅ Message acknowledged:', response);
+            resolve({
+              messageId: response.messageId,
+              isDuplicate: response.isDuplicate || false,
+              timestamp: response.timestamp,
+              clientMessageId,
+              tempId,
+            });
+          } else {
+            console.error('❌ Message send failed:', response.error);
+            
+            // Don't retry on validation errors or rate limits
+            if (response.error?.code === 'VALIDATION_ERROR' || 
+                response.error?.code === 'RATE_LIMIT_EXCEEDED' ||
+                response.error?.code === 'CONTENT_TOO_LONG') {
+              reject(new Error(response.error.message));
+            } else if (attempt < maxRetries) {
+              // Retry on other errors
+              const delay = Math.pow(2, attempt - 1) * 1000;
+              setTimeout(sendAttempt, delay);
+            } else {
+              reject(new Error(response.error?.message || 'Message send failed'));
+            }
+          }
+        });
+      };
+
+      // Start first attempt
+      sendAttempt();
+    });
+  }
+
+  /**
+   * Generate RFC4122 v4 UUID for clientMessageId
+   */
+  generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  /**
+   * Legacy method for backwards compatibility (no acknowledgment)
+   * @deprecated Use sendMessage() with Promise instead
+   */
+  sendMessageLegacy(chatId, content, type = 'text') {
     if (this.socket) {
       // Backend expects send_message event with { chatId, content, type }
       this.socket.emit('send_message', {
