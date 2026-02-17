@@ -206,10 +206,15 @@ const fetchProfileData = async () => {
     try {
       await userService.followUser(userId);
       
-      // Trigger event to refresh stats in sidebar
+      // Optimistically update following list so UI reflects the change immediately
+      setFollowingList(prev =>
+        prev.map(user =>
+          user.username === targetUsername ? { ...user, isFollowing: true } : user
+        )
+      );
+
+      // Trigger event to refresh stats in sidebar/profile
       window.dispatchEvent(new CustomEvent('followUpdated'));
-      
-      // Don't update lists - will refresh on page reload or modal reopen
     } catch (err) {
       console.error("Error following user:", err);
       alert(err.message || "Failed to follow user. Please try again.");
@@ -226,10 +231,15 @@ const fetchProfileData = async () => {
     try {
       await userService.unfollowUser(userId);
       
-      // Trigger event to refresh stats in sidebar
+      // Optimistically update following list so UI reflects the change immediately
+      setFollowingList(prev =>
+        prev.map(user =>
+          user.username === targetUsername ? { ...user, isFollowing: false } : user
+        )
+      );
+
+      // Trigger event to refresh stats in sidebar/profile
       window.dispatchEvent(new CustomEvent('followUpdated'));
-      
-      // Don't update lists - will refresh on page reload or modal reopen
     } catch (err) {
       console.error("Error unfollowing user:", err);
       alert(err.message || "Failed to unfollow user. Please try again.");

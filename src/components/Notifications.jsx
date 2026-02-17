@@ -233,9 +233,12 @@ export default function Notifications({ setActiveView, onViewUserProfile, previo
     try {
       // Call API
       if (actionType === "follow_back" || actionType === "confirm_request" || actionType === "follow") {
-        await userService.followUser(notif.username);
+        // Backend expects userId (uid), so use sender uid when available
+        const userIdToFollow = notif.senderUid || notif.senderId || notif.username;
+        await userService.followUser(userIdToFollow);
       } else if (actionType === "following") {
-        await userService.unfollowUser(notif.username);
+        const userIdToUnfollow = notif.senderUid || notif.senderId || notif.username;
+        await userService.unfollowUser(userIdToUnfollow);
       }
 
       // Mark notification as read

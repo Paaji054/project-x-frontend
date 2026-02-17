@@ -229,9 +229,11 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
     setFollowersModalOpen(true);
   };
 
-  const handleFollowUser = async (targetUsername) => {
+  // Handle follow from followers/following modal
+  // Signature from FollowersFollowingModal: onFollow(userId, username)
+  const handleFollowUser = async (userId, targetUsername) => {
     try {
-      await userService.followUser(targetUsername);
+      await userService.followUser(userId);
       
       // Update followers list
       setFollowersList(followersList.map(user =>
@@ -249,9 +251,11 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
     }
   };
 
-  const handleUnfollowUser = async (targetUsername) => {
+  // Handle unfollow from followers/following modal
+  // Signature from FollowersFollowingModal: onUnfollow(userId, username)
+  const handleUnfollowUser = async (userId, targetUsername) => {
     try {
-      await userService.unfollowUser(targetUsername);
+      await userService.unfollowUser(userId);
       
       // Update followers list
       setFollowersList(followersList.map(user =>
