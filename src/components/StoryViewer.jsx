@@ -29,6 +29,26 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
     .map((story, idx) => ({ ...story, originalIndex: currentStoryIndex + 1 + idx }))
     .filter((_, idx) => !viewedStories.has(currentStoryIndex + 1 + idx));
 
+  // Format story timestamp as relative time (e.g., "Just now", "5m", "2h")
+  const getRelativeTime = (dateValue) => {
+    if (!dateValue) return "";
+    const created = new Date(dateValue);
+    if (Number.isNaN(created.getTime())) return "";
+
+    const diffMs = Date.now() - created.getTime();
+    if (diffMs < 0) return "Just now";
+
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffSecs < 60) return "Just now";
+    if (diffMins < 60) return `${diffMins}m`;
+    if (diffHours < 24) return `${diffHours}h`;
+    return `${diffDays}d`;
+  };
+
   // Mobile detection
   useEffect(() => {
     const handleResize = () => {
@@ -261,7 +281,9 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                     </div>
                     <div>
                       <p className="text-white font-semibold text-sm">{currentStory.username}</p>
-                      <p className="text-gray-300 text-xs">11h</p>
+                      <p className="text-gray-300 text-xs">
+                        {getRelativeTime(currentStory.createdAt)}
+                      </p>
                     </div>
                   </div>
 
