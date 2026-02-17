@@ -118,17 +118,8 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
   }
 
   const handleJoin = async () => {
-    // If already joined, leave
-    if (isJoined) {
-      try {
-        await communityService.leaveCommunity(community.id || community._id);
-        setIsJoined(false);
-      } catch (err) {
-        console.error("Error leaving community:", err);
-        setError("Failed to leave community. Please try again.");
-      }
-      return;
-    }
+    // If already joined, do nothing (leave is handled by a separate button)
+    if (isJoined) return;
 
     // Restricted communities cannot be joined from outside
     if (community.type === "Restricted") {
@@ -151,6 +142,17 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
 
     // For private communities, show code modal
     setShowCodeModal(true);
+  };
+
+  const handleLeave = async () => {
+    try {
+      await communityService.leaveCommunity(community.id || community._id);
+      setIsJoined(false);
+    } catch (err) {
+      console.error("Error leaving community:", err);
+      setError("Failed to leave community. Please try again.");
+      setTimeout(() => setError(""), 5000);
+    }
   };
 
   const handleCodeSubmit = async () => {
@@ -439,13 +441,23 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     <button
                       onClick={handleJoin}
-                      className={`px-3 sm:px-4 md:px-6 py-1.5 sm:py-2 md:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition flex-shrink-0 ${isJoined
-                        ? "bg-gray-700 text-white border border-gray-600"
-                        : "bg-primary text-white hover:bg-primary-700"
-                        }`}
+                      disabled={isJoined}
+                      className={`px-3 sm:px-4 md:px-6 py-1.5 sm:py-2 md:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition flex-shrink-0 ${
+                        isJoined
+                          ? "bg-gray-700 text-white border border-gray-600 cursor-default opacity-80"
+                          : "bg-primary text-white hover:bg-primary-700"
+                      }`}
                     >
                       {isJoined ? "Joined" : "Join"}
                     </button>
+                    {isJoined && (
+                      <button
+                        onClick={handleLeave}
+                        className="px-3 sm:px-4 md:px-6 py-1.5 sm:py-2 md:py-2.5 rounded-lg bg-transparent text-red-500 border border-red-500 text-xs sm:text-sm font-medium hover:bg-red-500/10 transition flex-shrink-0"
+                      >
+                        Leave
+                      </button>
+                    )}
                     <button
                       onClick={handleAddPost}
                       className="px-3 sm:px-4 md:px-6 py-1.5 sm:py-2 md:py-2.5 rounded-lg bg-transparent text-white border border-primary text-xs sm:text-sm font-medium hover:bg-primary/10 transition flex-shrink-0"
