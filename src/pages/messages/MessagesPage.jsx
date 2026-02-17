@@ -34,6 +34,9 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [error, setError] = useState(null);
+  // People you can start a chat with (followers you also follow)
+  const [chatContacts, setChatContacts] = useState([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
   
   // Read receipt settings - load from localStorage
   const [readReceiptsEnabled, setReadReceiptsEnabled] = useState(() => {
@@ -101,17 +104,70 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
         console.error('Conversations is not an array:', convos);
         setConversations([]);
         setError('Invalid data received from server');
-        return;
+      } else {
+        setConversations(convos);
+        console.log(`Loaded ${convos.length} conversations`);
       }
-      
-      setConversations(convos);
-      console.log(`Loaded ${convos.length} conversations`);
+
+      // If there are no conversations yet, load people user can message
+      if ((!convos || convos.length === 0) && user?.username) {
+        await fetchChatContacts(user.username);
+      }
     } catch (err) {
       console.error("Error fetching conversations:", err);
       setError(err.message || "Failed to load conversations. Please try refreshing the page.");
       setConversations([]);
     } finally {
       setLoadingConversations(false);
+    }
+  };
+
+  /**
+   * Load users that the current user can start a chat with.
+   * Prefer mutuals (followers you also follow). If none, fall back to following list.
+   */
+  const fetchChatContacts = async (username) => {
+    try {
+      setLoadingContacts(true);
+
+      const [followersData, followingData] = await Promise.allSettled([
+        userService.getUserFollowers(username),
+        userService.getUserFollowing(username),
+      ]);
+
+      const followers =
+        followersData.status === "fulfilled"
+          ? followersData.value?.followers || followersData.value || []
+          : [];
+      const following =
+        followingData.status === "fulfilled"
+          ? followingData.value?.following || followingData.value || []
+          : [];
+
+      // Build map of following by uid/username
+      const followingMap = new Map(
+        following.map((u) => [
+          u.uid || u.id || u._id || u.username,
+          u,
+        ])
+      );
+
+      // Mutuals: in followers AND following
+      const mutuals = followers.filter((f) => {
+        const key = f.uid || f.id || f._id || f.username;
+        return followingMap.has(key);
+      });
+
+      const contacts = (mutuals.length > 0 ? mutuals : following).filter(
+        (u) => (u.uid || u.id || u._id) && u.username
+      );
+
+      setChatContacts(contacts);
+    } catch (err) {
+      console.error("Error fetching chat contacts:", err);
+      setChatContacts([]);
+    } finally {
+      setLoadingContacts(false);
     }
   };
 
@@ -190,7 +246,7 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
       }
       const newConvo = await messageService.createConversation(userId);
       if (newConvo) {
-        setConversations([newConvo, ...conversations]);
+        setConversations((prev) => [newConvo, ...prev]);
         setActiveChat(newConvo);
         setMessages([]);
       }
@@ -292,6 +348,23 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
     await fetchMessages(chat._id);
   };
 
+  const handleStartChatWithContact = async (contact) => {
+    if (!contact?.username) return;
+
+    // If a conversation already exists with this user, open it
+    const existingConvo = conversations.find(
+      (convo) =>
+        convo.otherUser?.username?.toLowerCase() ===
+        contact.username.toLowerCase()
+    );
+
+    if (existingConvo) {
+      await handleChatClick(existingConvo);
+    } else {
+      await createNewConversation(contact.username);
+    }
+  };
+
   const handleBackClick = () => {
     setActiveChat(null);
   };
@@ -323,29 +396,102 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
 
             {/* Empty State */}
             {!loadingConversations && !error && conversations.length === 0 && (
-              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+              <div className="text-center py-6 text-gray-500 dark:text-gray-400">
                 <div className="mb-4">
-                  <svg 
-                    className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-700" 
-                    fill="none" 
-                    stroke="currentColor" 
+                  <svg
+                    className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-700"
+                    fill="none"
+                    stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                       strokeWidth={1.5}
                       d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                     />
                   </svg>
                 </div>
                 <p className="font-semibold text-lg mb-2">No conversations yet</p>
-                <p className="text-sm mt-2 mb-4">Start chatting with someone!</p>
+                <p className="text-sm mt-2 mb-1">
+                  Start a chat with someone you follow.
+                </p>
                 <p className="text-xs text-gray-400 dark:text-gray-600">
-                  Visit a user's profile to send them a message
+                  Tap a user below to open a chat.
                 </p>
               </div>
             )}
+
+            {/* Contacts list when there are no conversations yet */}
+            {!loadingConversations &&
+              !error &&
+              conversations.length === 0 && (
+                <div className="mt-2">
+                  {loadingContacts ? (
+                    <div className="flex justify-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    </div>
+                  ) : chatContacts.length === 0 ? (
+                    <p className="text-xs text-gray-400 dark:text-gray-600 text-center">
+                      Follow someone to start messaging with them.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">
+                        People you can message
+                      </p>
+                      <div className="space-y-2">
+                        {chatContacts.map((contact) => (
+                          <div
+                            key={contact.uid || contact.id || contact._id}
+                            onClick={() => handleStartChatWithContact(contact)}
+                            className="flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-xl bg-white dark:bg-[#0f0f0f] border border-black dark:border-gray-800 hover:border-primary cursor-pointer transition"
+                          >
+                            {/* Profile Picture */}
+                            <div className="relative flex-shrink-0">
+                              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden">
+                                <LiveProfilePhoto
+                                  imageSrc={
+                                    contact.profilePhoto ||
+                                    contact.avatar ||
+                                    "https://i.pravatar.cc/100"
+                                  }
+                                  videoSrc={getProfileVideoUrl(
+                                    contact.profilePhoto ||
+                                      contact.avatar,
+                                    contact.username
+                                  )}
+                                  alt={contact.username || "User"}
+                                  className="w-10 h-10 md:w-12 md:h-12 rounded-full"
+                                />
+                              </div>
+                            </div>
+
+                            {/* User Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onViewUserProfile &&
+                                      onViewUserProfile(contact.username);
+                                  }}
+                                  className="font-semibold text-sm md:text-base text-black dark:text-white truncate hover:opacity-70 transition-opacity cursor-pointer"
+                                >
+                                  {contact.username || "Unknown User"}
+                                </button>
+                              </div>
+                              <p className="text-xs md:text-sm text-gray-400 truncate">
+                                Tap to start a conversation
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
             <div className="space-y-2">
               {conversations.map((convo) => {
