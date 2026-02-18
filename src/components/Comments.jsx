@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart } from "lucide-react";
+import { Heart, MoreVertical, Trash2 } from "lucide-react";
 import LiveProfilePhoto from "./LiveProfilePhoto";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { getProfileVideoUrl } from "../utils/profileVideos";
 import { formatDistanceToNow } from "date-fns";
 
-export default function Comments({ isOpen, onClose, variant = "sidebar", initialComments = [], onViewUserProfile, onAddComment, onLikeComment }) {
+export default function Comments({ isOpen, onClose, variant = "sidebar", initialComments = [], onViewUserProfile, onAddComment, onLikeComment, onDeleteComment, currentUserId, postId }) {
   const [newComment, setNewComment] = useState("");
   const [comments, setComments] = useState(initialComments);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [openMenuCommentId, setOpenMenuCommentId] = useState(null);
+  const [deletingCommentId, setDeletingCommentId] = useState(null);
   const { profilePhoto, profileVideo, username } = useUserProfile();
 
   // Reset comments when modal opens/closes or initialComments changes
@@ -61,6 +63,21 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
         }
         return comment;
       }));
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!onDeleteComment || !postId || deletingCommentId) return;
+    try {
+      setDeletingCommentId(commentId);
+      setOpenMenuCommentId(null);
+      await onDeleteComment(commentId);
+      setComments((prev) => prev.filter((c) => (c._id || c.id) !== commentId));
+    } catch (err) {
+      console.error("Error deleting comment:", err);
+      alert("Failed to delete comment. Please try again.");
+    } finally {
+      setDeletingCommentId(null);
     }
   };
 
@@ -146,6 +163,9 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
               const commentImage = comment.user?.profilePhoto || comment.image;
               const commentLikes = comment.likesCount || comment.likes || 0;
               const isCommentLiked = comment.isLiked || comment.liked;
+              const commentAuthorId = comment.userId || comment.user?.uid;
+              const canDeleteComment = currentUserId && commentAuthorId && commentAuthorId === currentUserId && onDeleteComment && postId;
+              const isDeletingThis = deletingCommentId === commentId;
               return (
               <motion.div
                 key={commentId}
@@ -190,6 +210,37 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
                     </span>
                   </div>
                 </div>
+                {canDeleteComment && (
+                  <div className="relative flex-shrink-0 self-start">
+                    <button
+                      onClick={() => setOpenMenuCommentId(openMenuCommentId === commentId ? null : commentId)}
+                      className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                      aria-label="Comment options"
+                    >
+                      <MoreVertical className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                    </button>
+                    {openMenuCommentId === commentId && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setOpenMenuCommentId(null)} aria-hidden="true" />
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="absolute right-0 top-8 z-20 min-w-[140px] rounded-lg bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 shadow-lg py-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={() => handleDeleteComment(commentId)}
+                            disabled={isDeletingThis}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            {isDeletingThis ? 'Deleting...' : 'Delete'}
+                          </button>
+                        </motion.div>
+                      </>
+                    )}
+                  </div>
+                )}
               </motion.div>
             );
             })}

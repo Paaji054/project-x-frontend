@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, X } from "lucide-react";
+import { Heart, X, MoreVertical, Trash2 } from "lucide-react";
 import ShareModal from "./ShareModal";
 import commentIcon from "../assets/comment.svg";
 import messageIcon from "../assets/message.svg";
@@ -9,7 +9,7 @@ import { getProfileVideoUrl } from "../utils/profileVideos";
 import { postService } from "../services/postService";
 import { useUserProfile } from "../hooks/useUserProfile";
 
-export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfile }) {
+export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfile, currentUserId, onPostDeleted }) {
   const [liked, setLiked] = useState(post?.isLiked || post?.liked || false);
   const [likes, setLikes] = useState(post?.likesCount || post?.likes || 0);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -19,17 +19,24 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [postMenuOpen, setPostMenuOpen] = useState(false);
+  const [commentMenuOpenId, setCommentMenuOpenId] = useState(null);
+  const [isDeletingPost, setIsDeletingPost] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState(null);
   
-  // Get current logged-in user data
-  const { profilePhoto: currentUserPhoto, profileVideo: currentUserVideo } = useUserProfile();
+  // Get current logged-in user data (for new comment display)
+  const { profilePhoto: currentUserPhoto, profileVideo: currentUserVideo, username: currentUsername } = useUserProfile();
+  // Backend sends userId on post; getPost also sends author.uid, feed/userPosts send author or only userId
+  const postOwnerId = post?.userId || post?.user?.uid || post?.author?.uid;
+  const isOwnPost = currentUserId && postOwnerId && postOwnerId === currentUserId;
 
   // Get post ID (handle both _id and id)
   const postId = post?.id || post?._id;
 
-  // Post data from backend - no hardcoded defaults
+  // Post data: backend getPost returns author.{profilePhoto,username}, feed returns author.*, getUserPosts returns only userId
   const postImage = post?.imageUrl || post?.image || post?.images?.[0];
-  const profileImage = post?.user?.profilePhoto || post?.profileImage;
-  const username = post?.user?.username || post?.username;
+  const profileImage = post?.user?.profilePhoto || post?.author?.profilePhoto || post?.author?.avatar || post?.profileImage;
+  const username = post?.user?.username || post?.author?.username || post?.username;
   const caption = post?.caption || "";
 
   // Fetch comments when modal opens or post changes
@@ -155,18 +162,23 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
     setNewComment("");
     
     try {
-      // Call API to save comment
-      const response = await postService.addComment(postId, { 
-        content: commentText,
-        text: commentText 
-      });
+      // Call API to save comment (backend expects { text } and returns { comment } with userId, text, _id)
+      const response = await postService.addComment(postId, { text: commentText });
       
-      // Add the new comment from backend response
-      if (response && (response.comment || response.data)) {
-        const newCommentObj = response.comment || response.data;
+      // Add the new comment: backend returns { comment: { _id, userId, text, ... } }; enrich for display
+      const raw = response?.comment ?? response?.data ?? response;
+      if (raw && (raw._id || raw.id)) {
+        const newCommentObj = {
+          ...raw,
+          content: raw.content ?? raw.text,
+          user: raw.user ?? {
+            uid: currentUserId,
+            username: currentUsername,
+            profilePhoto: currentUserPhoto,
+          },
+        };
         setComments(prev => [...prev, newCommentObj]);
       } else {
-        // Fallback: refetch all comments
         fetchComments();
       }
     } catch (error) {
@@ -178,6 +190,37 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
 
   const handleShareClick = () => {
     setIsShareModalOpen(true);
+  };
+
+  const handleDeletePost = async () => {
+    if (!postId || isDeletingPost) return;
+    try {
+      setIsDeletingPost(true);
+      setPostMenuOpen(false);
+      await postService.deletePost(postId);
+      if (onPostDeleted) onPostDeleted(postId);
+      onClose();
+    } catch (err) {
+      console.error("Failed to delete post:", err);
+      alert("Failed to delete post. Please try again.");
+    } finally {
+      setIsDeletingPost(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!postId || deletingCommentId) return;
+    try {
+      setDeletingCommentId(commentId);
+      setCommentMenuOpenId(null);
+      await postService.deleteComment(postId, commentId);
+      setComments((prev) => prev.filter((c) => (c._id || c.id) !== commentId));
+    } catch (err) {
+      console.error("Failed to delete comment:", err);
+      alert("Failed to delete comment. Please try again.");
+    } finally {
+      setDeletingCommentId(null);
+    }
   };
 
   if (!isOpen) return null;
@@ -210,13 +253,47 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
               className="w-full h-full md:h-[90vh] md:max-w-7xl bg-white dark:bg-[#0f0f0f] md:rounded-2xl overflow-hidden pointer-events-auto flex flex-col md:grid md:grid-cols-2 gap-0"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Close Button */}
-              <button
-                onClick={onClose}
-                className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-black/80 hover:bg-black dark:bg-black/80 dark:hover:bg-black flex items-center justify-center transition-colors"
-              >
-                <X className="w-5 h-5 text-white dark:text-white" />
-              </button>
+              {/* Top-right: post menu (owner) + close */}
+              <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+                {isOwnPost && (
+                  <div className="relative">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setPostMenuOpen((prev) => !prev); }}
+                      className="w-8 h-8 rounded-full bg-black/80 hover:bg-black dark:bg-black/80 dark:hover:bg-black flex items-center justify-center transition-colors"
+                      aria-label="Post options"
+                    >
+                      <MoreVertical className="w-5 h-5 text-white" />
+                    </button>
+                    {postMenuOpen && (
+                      <>
+                        <div className="fixed inset-0 z-20" onClick={() => setPostMenuOpen(false)} aria-hidden="true" />
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="absolute right-0 top-10 z-30 min-w-[160px] rounded-xl bg-gray-900 dark:bg-gray-800 border border-gray-700 shadow-xl py-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={handleDeletePost}
+                            disabled={isDeletingPost}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-left text-red-400 hover:bg-gray-800 transition"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            {isDeletingPost ? "Deleting..." : "Delete post"}
+                          </button>
+                        </motion.div>
+                      </>
+                    )}
+                  </div>
+                )}
+                <button
+                  onClick={onClose}
+                  className="w-8 h-8 rounded-full bg-black/80 hover:bg-black dark:bg-black/80 dark:hover:bg-black flex items-center justify-center transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5 text-white dark:text-white" />
+                </button>
+              </div>
 
               {/* Left Side - Post (looks exactly like PostCard) */}
               <div className="w-full h-1/2 md:h-full flex flex-col bg-gray-100 dark:bg-[#111] md:border-r border-b md:border-b-0 border-gray-300 dark:border-gray-800 overflow-hidden">
@@ -328,6 +405,9 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                       {comments.map((comment, index) => {
                         const commentId = comment._id || comment.id;
                         const commentContent = comment.content || comment.text;
+                        const commentAuthorId = comment.userId || comment.user?.uid;
+                        const canDelete = currentUserId && commentAuthorId && commentAuthorId === currentUserId;
+                        const isDeletingThis = deletingCommentId === commentId;
                         return (
                         <motion.div
                           key={commentId}
@@ -376,6 +456,37 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                               </span>
                             </div>
                           </div>
+                          {canDelete && (
+                            <div className="relative flex-shrink-0 self-start">
+                              <button
+                                onClick={() => setCommentMenuOpenId(commentMenuOpenId === commentId ? null : commentId)}
+                                className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                aria-label="Comment options"
+                              >
+                                <MoreVertical className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                              </button>
+                              {commentMenuOpenId === commentId && (
+                                <>
+                                  <div className="fixed inset-0 z-20" onClick={() => setCommentMenuOpenId(null)} aria-hidden="true" />
+                                  <motion.div
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="absolute right-0 top-8 z-30 min-w-[140px] rounded-lg bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 shadow-lg py-1"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <button
+                                      onClick={() => handleDeleteComment(commentId)}
+                                      disabled={isDeletingThis}
+                                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                      {isDeletingThis ? 'Deleting...' : 'Delete'}
+                                    </button>
+                                  </motion.div>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </motion.div>
                       );
                       })}

@@ -65,6 +65,19 @@ export const storyService = {
       throw error;
     }
   },
+
+  /**
+   * Delete story (owner only)
+   */
+  async deleteStory(storyId) {
+    try {
+      const response = await api.delete(API_ENDPOINTS.STORIES.DELETE(storyId));
+      return response;
+    } catch (error) {
+      console.error('Delete story error:', error);
+      throw error;
+    }
+  },
 };
 
 

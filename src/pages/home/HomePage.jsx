@@ -5,10 +5,13 @@ import PostCard from "../../components/PostCard";
 import Comments from "../../components/Comments";
 import { postService } from "../../services";
 import { useUserProfile } from "../../hooks/useUserProfile";
+import { useAuth } from "../../context/AuthContext";
 
 export default function HomePage({ onViewUserProfile }) {
   const navigate = useNavigate();
   const { username: currentUsername } = useUserProfile();
+  const { user } = useAuth();
+  const currentUserId = user?.uid || user?.id || user?._id;
   const [activePostId, setActivePostId] = useState(null);
   const [postsComments, setPostsComments] = useState({});
 
@@ -170,6 +173,20 @@ export default function HomePage({ onViewUserProfile }) {
     }
   };
 
+  const handleDeleteComment = async (commentId) => {
+    if (!activePostId) return;
+    try {
+      await postService.deleteComment(activePostId, commentId);
+      setPostsComments((prev) => ({
+        ...prev,
+        [activePostId]: (prev[activePostId] || []).filter((c) => (c._id || c.id) !== commentId)
+      }));
+    } catch (err) {
+      console.error("Error deleting comment:", err);
+      throw err;
+    }
+  };
+
   const handleAddStory = () => {
     navigate('/story/add');
   };
@@ -260,6 +277,9 @@ export default function HomePage({ onViewUserProfile }) {
               onViewUserProfile={onViewUserProfile}
               onAddComment={handleAddComment}
               onLikeComment={handleLikeComment}
+              onDeleteComment={handleDeleteComment}
+              currentUserId={currentUserId}
+              postId={activePostId}
             />
           </div>
 
@@ -272,6 +292,9 @@ export default function HomePage({ onViewUserProfile }) {
               onViewUserProfile={onViewUserProfile}
               onAddComment={handleAddComment}
               onLikeComment={handleLikeComment}
+              onDeleteComment={handleDeleteComment}
+              currentUserId={currentUserId}
+              postId={activePostId}
             />
           </div>
         </div>

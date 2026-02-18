@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import StoryViewer from "./StoryViewer";
 import LiveProfilePhoto from "./LiveProfilePhoto";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useAuth } from "../context/AuthContext";
 import { storyService } from "../services/storyService";
 
 export default function Stories({ onAddStory }) {
@@ -15,6 +16,8 @@ export default function Stories({ onAddStory }) {
   const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(true);
   const { profilePhoto, profileVideo } = useUserProfile();
+  const { user } = useAuth();
+  const currentUserId = user?.uid || user?.id || user?._id;
 
   // Fetch stories on mount
   useEffect(() => {
@@ -261,6 +264,11 @@ export default function Stories({ onAddStory }) {
               prev.includes(storyId) ? prev : [...prev, storyId]
             )
           }
+          currentUserId={currentUserId}
+          onStoryDeleted={(deletedStoryId) => {
+            setStories((prev) => prev.filter((s) => (s._id || s.id) !== deletedStoryId));
+            setSelectedStoryIndex(null);
+          }}
         />
       )}
     </div>

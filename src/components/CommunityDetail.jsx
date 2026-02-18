@@ -11,6 +11,7 @@ import LiveBanner from "../components/LiveBanner";
 import { getProfileVideoUrl } from "../utils/profileVideos";
 import { getCommunityBannerVideoUrl, getCommunityProfileVideoUrl } from "../utils/communityVideos";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useAuth } from "../context/AuthContext";
 import { communityService } from "../services/communityService";
 import { postService } from "../services/postService";
 import CommunitySettings from "./CommunitySettings";
@@ -19,6 +20,8 @@ import CreatePost from "./CreatePost";
 export default function CommunityDetail({ communityId, onViewUserProfile }) {
   const navigate = useNavigate();
   const { username, user } = useUserProfile();
+  const { user: authUser } = useAuth();
+  const currentUserId = authUser?.uid || authUser?.id || user?.uid || user?.id;
   const [activeView, setActiveView] = useState("detail"); // "detail" or "settings"
   const [isJoined, setIsJoined] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -338,6 +341,25 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
       } catch (refetchErr) {
         console.error("Error refetching comments:", refetchErr);
       }
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!openCommentsPostId) return;
+    try {
+      await postService.deleteComment(openCommentsPostId, commentId);
+      setPosts(posts.map(p => {
+        if (p.id === openCommentsPostId) {
+          return {
+            ...p,
+            commentsList: (p.commentsList || []).filter((c) => (c._id || c.id) !== commentId)
+          };
+        }
+        return p;
+      }));
+    } catch (err) {
+      console.error("Error deleting comment:", err);
+      throw err;
     }
   };
 
@@ -751,6 +773,9 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
         onViewUserProfile={onViewUserProfile}
         onAddComment={handleAddComment}
         onLikeComment={handleLikeComment}
+        onDeleteComment={handleDeleteComment}
+        currentUserId={currentUserId}
+        postId={openCommentsPostId}
       />
 
       {/* Share Modal */}

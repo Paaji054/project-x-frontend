@@ -205,6 +205,19 @@ export const postService = {
   },
 
   /**
+   * Delete comment
+   */
+  async deleteComment(postId, commentId) {
+    try {
+      const response = await api.delete(API_ENDPOINTS.POSTS.DELETE_COMMENT(postId, commentId));
+      return response;
+    } catch (error) {
+      console.error('Delete comment error:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Share post
    */
   async sharePost(postId) {

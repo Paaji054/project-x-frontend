@@ -7,8 +7,11 @@ import Filters from "../../components/Filters";
 import Accounts from "../../components/Accounts";
 import Comments from "../../components/Comments";
 import { searchService, postService } from "../../services";
+import { useAuth } from "../../context/AuthContext";
 
 export default function ExplorePage({ onViewUserProfile }) {
+  const { user } = useAuth();
+  const currentUserId = user?.uid || user?.id || user?._id;
   const [activeTab, setActiveTab] = useState("Posts");
   const [searchTerm, setSearchTerm] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -217,6 +220,20 @@ export default function ExplorePage({ onViewUserProfile }) {
     }
   };
 
+  const handleDeleteComment = async (commentId) => {
+    if (!activePostId) return;
+    try {
+      await postService.deleteComment(activePostId, commentId);
+      setPostsComments((prev) => ({
+        ...prev,
+        [activePostId]: (prev[activePostId] || []).filter((c) => (c._id || c.id) !== commentId)
+      }));
+    } catch (err) {
+      console.error("Error deleting comment:", err);
+      throw err;
+    }
+  };
+
   const categories = [
     "Memes",
     "Entertainment",
@@ -350,6 +367,9 @@ export default function ExplorePage({ onViewUserProfile }) {
             onViewUserProfile={onViewUserProfile}
             onAddComment={handleAddComment}
             onLikeComment={handleLikeComment}
+            onDeleteComment={handleDeleteComment}
+            currentUserId={currentUserId}
+            postId={activePostId}
           />
         </>
       )}
@@ -364,6 +384,7 @@ export default function ExplorePage({ onViewUserProfile }) {
         onClose={handleClosePostModal}
         post={selectedPost}
         onViewUserProfile={onViewUserProfile}
+        currentUserId={currentUserId}
       />
     </main>
   );

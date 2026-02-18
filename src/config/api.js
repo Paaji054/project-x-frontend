@@ -55,6 +55,7 @@ export const API_ENDPOINTS = {
     COMMENT_LIKE: (postId, commentId) => `/api/posts/${postId}/comments/${commentId}/like`,
     COMMENT_UNLIKE: (postId, commentId) => `/api/posts/${postId}/comments/${commentId}/like`,
     ADD_COMMENT: (postId) => `/api/posts/${postId}/comments`,
+    DELETE_COMMENT: (postId, commentId) => `/api/posts/${postId}/comments/${commentId}`,
     BOOKMARK: (postId) => `/api/posts/${postId}/bookmark`,
     UNBOOKMARK: (postId) => `/api/posts/${postId}/bookmark`,
     SHARE: (postId) => `/api/posts/${postId}/share`,
@@ -158,5 +159,6 @@ export const API_ENDPOINTS = {
     CREATE: '/api/stories',
     VIEW: (storyId) => `/api/stories/${storyId}/view`,
     BY_USER: (userId) => `/api/stories/user/${userId}`,
+    DELETE: (storyId) => `/api/stories/${storyId}`,
   },
 };

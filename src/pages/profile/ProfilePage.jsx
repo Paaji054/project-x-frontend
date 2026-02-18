@@ -463,6 +463,11 @@ const fetchProfileData = async () => {
         onClose={handleCloseModal}
         post={selectedPost}
         onViewUserProfile={onViewUserProfile}
+        currentUserId={user?.uid || user?.id}
+        onPostDeleted={(deletedPostId) => {
+          setPosts((prev) => prev.filter((p) => (p._id || p.id) !== deletedPostId));
+          handleCloseModal();
+        }}
       />
 
       {/* Logout Confirmation Modal */}

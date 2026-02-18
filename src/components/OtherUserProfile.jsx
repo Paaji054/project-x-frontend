@@ -7,6 +7,7 @@ import FollowersFollowingModal from "../components/FollowersFollowingModal";
 import LiveProfilePhoto from "../components/LiveProfilePhoto";
 import { getProfileVideoUrl } from "../utils/profileVideos";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useAuth } from "../context/AuthContext";
 import { userService, postService } from "../services";
 
 export default function OtherUserProfile({ username: viewedUsername, onViewUserProfile }) {
@@ -17,6 +18,8 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
   const [followersModalOpen, setFollowersModalOpen] = useState(false);
   const [followersModalType, setFollowersModalType] = useState("followers");
   const { username: currentUsername } = useUserProfile();
+  const { user } = useAuth();
+  const currentUserId = user?.uid || user?.id || user?._id;
 
   const viewedUser = viewedUsername || "sheryanne_xoxo";
 
@@ -496,6 +499,7 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
         onClose={handleCloseModal}
         post={selectedPost}
         onViewUserProfile={onViewUserProfile}
+        currentUserId={currentUserId}
       />
 
       {/* Followers/Following Modal */}

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Heart, Send } from "lucide-react";
+import { X, Heart, Send, MoreVertical, Trash2 } from "lucide-react";
 import ShareModal from "./ShareModal";
+import { storyService } from "../services/storyService";
 
-export default function StoryViewer({ stories, initialIndex, onClose, onStoryViewed }) {
+export default function StoryViewer({ stories, initialIndex, onClose, onStoryViewed, currentUserId, onStoryDeleted }) {
   const [currentStoryIndex, setCurrentStoryIndex] = useState(initialIndex);
   const [viewedStories, setViewedStories] = useState(new Set([initialIndex]));
   const [progress, setProgress] = useState(0);
@@ -11,11 +12,17 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
   const [isPaused, setIsPaused] = useState(false);
   const [liked, setLiked] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [storyMenuOpen, setStoryMenuOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const progressIntervalRef = useRef(null);
   const handleNextRef = useRef(null);
   const handlePrevRef = useRef(null);
 
   const currentStory = stories[currentStoryIndex];
+  // Backend sends story with userId and author: { uid, username, ... }
+  const storyOwnerId = currentStory?.userId || currentStory?.author?.uid;
+  const isOwnStory = currentUserId && storyOwnerId && storyOwnerId === currentUserId;
+  const storyUsername = currentStory?.author?.username || currentStory?.username;
 
   // Get previous viewed stories
   const prevStories = stories
@@ -135,12 +142,32 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
   handleNextRef.current = handleNext;
   handlePrevRef.current = handlePrev;
 
+  const handleDeleteStory = async () => {
+    const storyId = currentStory?._id || currentStory?.id;
+    if (!storyId || isDeleting) return;
+    try {
+      setIsDeleting(true);
+      setStoryMenuOpen(false);
+      await storyService.deleteStory(storyId);
+      if (onStoryDeleted) onStoryDeleted(storyId);
+      onClose();
+    } catch (err) {
+      console.error("Failed to delete story:", err);
+      alert("Failed to delete story. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (e.key === "ArrowRight" && handleNextRef.current) handleNextRef.current();
       if (e.key === "ArrowLeft" && handlePrevRef.current) handlePrevRef.current();
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        setStoryMenuOpen(false);
+        onClose();
+      }
     };
 
     window.addEventListener("keydown", handleKeyPress);
@@ -188,11 +215,11 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                     <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-gray-700">
                       <img
                         src={story.mediaUrl || story.image}
-                        alt={story.username}
+                        alt={story.author?.username || story.username || 'Story'}
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    <p className="text-xs text-gray-400 mt-1 truncate">{story.username}</p>
+                    <p className="text-xs text-gray-400 mt-1 truncate">{story.author?.username || story.username || ''}</p>
                   </motion.div>
                 ))}
               </div>
@@ -201,13 +228,54 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
 
           {/* Center - Current Story */}
           <div className="flex-1 relative flex items-center justify-center">
-            {/* Close Button */}
-            <button
-              onClick={onClose}
-              className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center hover:bg-black/70 transition"
-            >
-              <X className="w-5 h-5 text-white" />
-            </button>
+            {/* Top-right: three-dots (owner) + close */}
+            <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+              {isOwnStory && (
+                <div className="relative">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setStoryMenuOpen((prev) => !prev);
+                    }}
+                    className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center hover:bg-black/70 transition"
+                    aria-label="Story options"
+                  >
+                    <MoreVertical className="w-5 h-5 text-white" />
+                  </button>
+                  {storyMenuOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setStoryMenuOpen(false)}
+                        aria-hidden="true"
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="absolute right-0 top-12 z-20 min-w-[160px] rounded-xl bg-gray-900 border border-gray-700 shadow-xl py-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={handleDeleteStory}
+                          disabled={isDeleting}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-left text-red-400 hover:bg-gray-800 transition"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          {isDeleting ? "Deleting..." : "Delete"}
+                        </button>
+                      </motion.div>
+                    </>
+                  )}
+                </div>
+              )}
+              <button
+                onClick={onClose}
+                className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center hover:bg-black/70 transition"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
 
             {/* Progress Bar */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-gray-800 z-10">
@@ -246,7 +314,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                 <div className="relative w-full aspect-[9/16] max-h-[90vh] rounded-lg overflow-hidden bg-black">
                   <img
                     src={currentStory.mediaUrl || currentStory.image}
-                    alt={currentStory.username}
+                    alt={storyUsername || 'Story'}
                     className="w-full h-full object-cover select-none"
                     draggable="false"
                     loading="eager"
@@ -274,13 +342,13 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                   <div className="absolute top-4 left-4 right-4 flex items-center gap-3 z-10">
                     <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white">
                       <img
-                        src={currentStory.author?.avatar || currentStory.user?.profilePhoto || currentStory.mediaUrl || currentStory.image}
-                        alt={currentStory.username}
+                        src={currentStory.author?.avatar || currentStory.author?.profilePhoto || currentStory.user?.profilePhoto || currentStory.mediaUrl || currentStory.image}
+                        alt={storyUsername || 'Story'}
                         className="w-full h-full object-cover"
                       />
                     </div>
                     <div>
-                      <p className="text-white font-semibold text-sm">{currentStory.username}</p>
+                      <p className="text-white font-semibold text-sm">{storyUsername || 'User'}</p>
                       <p className="text-gray-300 text-xs">
                         {getRelativeTime(currentStory.createdAt)}
                       </p>
@@ -291,7 +359,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                   <div className="absolute bottom-4 left-4 right-4 flex items-center gap-3 md:gap-4 z-10">
                     <input
                       type="text"
-                      placeholder={`Reply to ${currentStory.username}...`}
+                      placeholder={`Reply to ${storyUsername || 'user'}...`}
                       onClick={(e) => e.stopPropagation()}
                       className="flex-1 bg-black/50 backdrop-blur-sm border border-gray-700 rounded-full px-3 md:px-4 py-2 text-sm md:text-base text-white placeholder-gray-400 focus:outline-none focus:border-white"
                     />
@@ -341,13 +409,13 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                     <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-gray-700">
                       <img
                         src={story.mediaUrl || story.image}
-                        alt={story.username}
+                        alt={story.author?.username || story.username || 'Story'}
                         className="w-full h-full object-cover"
                         loading="lazy"
                         decoding="async"
                       />
                     </div>
-                    <p className="text-xs text-gray-400 mt-1 truncate">{story.username}</p>
+                    <p className="text-xs text-gray-400 mt-1 truncate">{story.author?.username || story.username || ''}</p>
                   </motion.div>
                 ))}
               </div>
