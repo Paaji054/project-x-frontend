@@ -502,7 +502,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
 
           {/* Right Column */}
           <div className="space-y-6">
-            {/* Account Type */}
+            {/* Account Type - commented out
             <div>
               <label className="block text-sm font-medium text-primary mb-3">
                 Account Type
@@ -532,6 +532,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
                 </label>
               </div>
             </div>
+            */}
 
             {/* Notifications */}
             <div>
