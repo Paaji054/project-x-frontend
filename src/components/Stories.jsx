@@ -79,6 +79,14 @@ export default function Stories({ onAddStory }) {
     return aSeen ? 1 : -1;
   });
 
+  // For the current user, avoid showing their story twice:
+  // the \"Your Story\" tile on the left is enough.
+  const visibleStories = sortedStories.filter((story) => {
+    const ownerId = story.userId || story.author?.uid;
+    if (!currentUserId) return true;
+    return ownerId !== currentUserId;
+  });
+
   const checkScrollPosition = () => {
     if (scrollContainerRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
@@ -184,8 +192,8 @@ export default function Stories({ onAddStory }) {
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
             </div>
           )}
-          {!loading && sortedStories.map((story, index) => {
-            const isLastStory = index === sortedStories.length - 1;
+          {!loading && visibleStories.map((story, index) => {
+            const isLastStory = index === visibleStories.length - 1;
             const shouldShowArrow = isLastStory && showRightArrow;
             const originalIndex = stories.findIndex((s) => (s._id || s.id) === (story._id || story.id));
             const storyId = story._id || story.id;
