@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Heart, Send, MoreVertical, Trash2 } from "lucide-react";
+import { X, Heart, Send, SendHorizonal, MoreVertical, Trash2 } from "lucide-react";
 import ShareModal from "./ShareModal";
 import { storyService } from "../services/storyService";
+import { messageService } from "../services/messageService";
 
 export default function StoryViewer({ stories, initialIndex, onClose, onStoryViewed, currentUserId, onStoryDeleted }) {
   const [currentStoryIndex, setCurrentStoryIndex] = useState(initialIndex);
@@ -14,6 +15,8 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [storyMenuOpen, setStoryMenuOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [isSendingReply, setIsSendingReply] = useState(false);
   const progressIntervalRef = useRef(null);
   const handleNextRef = useRef(null);
   const handlePrevRef = useRef(null);
@@ -141,6 +144,29 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
   // Store refs for use in interval
   handleNextRef.current = handleNext;
   handlePrevRef.current = handlePrev;
+
+  const handleSendReply = async () => {
+    const text = replyText.trim();
+    if (!text) return;
+    if (!storyOwnerId) return;
+    if (isOwnStory) return;
+    if (isSendingReply) return;
+
+    try {
+      setIsSendingReply(true);
+      const conversation = await messageService.createConversation(storyOwnerId);
+      const conversationId = conversation?._id || conversation?.id;
+      if (!conversationId) throw new Error("Conversation not created");
+
+      await messageService.sendMessage(conversationId, storyOwnerId, text);
+      setReplyText("");
+    } catch (err) {
+      console.error("Failed to send story reply:", err);
+      alert("Failed to send message. Please try again.");
+    } finally {
+      setIsSendingReply(false);
+    }
+  };
 
   const handleDeleteStory = async () => {
     const storyId = currentStory?._id || currentStory?.id;
@@ -357,12 +383,39 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
 
                   {/* Interaction Buttons */}
                   <div className="absolute bottom-4 left-4 right-4 flex items-center gap-3 md:gap-4 z-10">
-                    <input
-                      type="text"
-                      placeholder={`Reply to ${storyUsername || 'user'}...`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex-1 bg-black/50 backdrop-blur-sm border border-gray-700 rounded-full px-3 md:px-4 py-2 text-sm md:text-base text-white placeholder-gray-400 focus:outline-none focus:border-white"
-                    />
+                    <div className="flex-1 flex items-center gap-2 bg-black/50 backdrop-blur-sm border border-gray-700 rounded-full px-3 md:px-4 py-2">
+                      <input
+                        type="text"
+                        value={replyText}
+                        placeholder={isOwnStory ? "You can't reply to your own story" : `Reply to ${storyUsername || 'user'}...`}
+                        disabled={isOwnStory || isSendingReply}
+                        onClick={(e) => e.stopPropagation()}
+                        onFocus={(e) => {
+                          e.stopPropagation();
+                          setIsPaused(true);
+                        }}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleSendReply();
+                          }
+                        }}
+                        className="flex-1 bg-transparent text-sm md:text-base text-white placeholder-gray-400 focus:outline-none"
+                      />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSendReply();
+                        }}
+                        disabled={isOwnStory || isSendingReply || !replyText.trim()}
+                        className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-black/40 hover:bg-black/60 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition"
+                        aria-label="Send reply"
+                      >
+                        <SendHorizonal className="w-5 h-5 text-white" />
+                      </button>
+                    </div>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
