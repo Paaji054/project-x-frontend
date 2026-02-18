@@ -405,6 +405,7 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                       {comments.map((comment, index) => {
                         const commentId = comment._id || comment.id;
                         const commentContent = comment.content || comment.text;
+                        const commentUsername = comment.user?.username || comment.username || comment.author?.username || comment.user?.displayName || comment.author?.displayName || 'User';
                         const commentAuthorId = comment.userId || comment.user?.uid;
                         const canDelete = currentUserId && commentAuthorId && commentAuthorId === currentUserId;
                         const isDeletingThis = deletingCommentId === commentId;
@@ -418,19 +419,19 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                         >
                           <div className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden flex-shrink-0 border border-gray-700">
                             <LiveProfilePhoto
-                              imageSrc={comment.user?.profilePhoto || comment.image}
-                              videoSrc={getProfileVideoUrl(comment.user?.profilePhoto || comment.image, comment.user?.username || comment.username)}
-                              alt={comment.user?.username || comment.username}
+                              imageSrc={comment.user?.profilePhoto || comment.author?.profilePhoto || comment.author?.avatar || comment.image}
+                              videoSrc={getProfileVideoUrl(comment.user?.profilePhoto || comment.author?.profilePhoto || comment.image, commentUsername)}
+                              alt={commentUsername}
                               className="w-9 h-9 md:w-10 md:h-10 rounded-full"
                             />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="bg-gray-200 dark:bg-[#1a1a1a] rounded-2xl px-4 py-2.5 md:px-5 md:py-3 hover:bg-gray-300 dark:hover:bg-[#1f1f1f] transition-colors">
                               <button
-                                onClick={() => onViewUserProfile && onViewUserProfile(comment.user?.username || comment.username)}
+                                onClick={() => onViewUserProfile && commentUsername !== 'User' && onViewUserProfile(comment.user?.username || comment.username || comment.author?.username)}
                                 className="font-semibold text-sm md:text-base text-black dark:text-white mb-1 hover:opacity-70 transition-opacity cursor-pointer"
                               >
-                                {comment.user?.username || comment.username}
+                                {commentUsername}
                               </button>
                               <p className="text-sm md:text-base text-gray-600 dark:text-gray-300 leading-relaxed break-words">
                                 {commentContent}

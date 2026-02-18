@@ -66,7 +66,8 @@ export const postService = {
    */
   async getPostComments(postId, limit = 20, page = 1) {
     try {
-      const response = await api.get(API_ENDPOINTS.POSTS.COMMENTS(postId), { limit, page });
+      const skip = (page - 1) * limit;
+      const response = await api.get(API_ENDPOINTS.POSTS.COMMENTS(postId), { limit, skip });
       return response.success ? response.data : { comments: [], pagination: {} };
     } catch (error) {
       console.error('Get post comments error:', error);

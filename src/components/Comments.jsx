@@ -92,11 +92,12 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
       if (onAddComment) {
         // Use the parent's callback to add comment to API
         const addedComment = await onAddComment(commentText);
-        
-        // The parent will update initialComments, which will trigger useEffect
-        // But we can optimistically add it here too
+        // API returns comment with userId, text; enrich with current user for display if missing
         if (addedComment) {
-          setComments(prev => [...prev, addedComment]);
+          const toAdd = addedComment.user?.username || addedComment.username
+            ? addedComment
+            : { ...addedComment, content: addedComment.content ?? addedComment.text, username, user: { uid: currentUserId, username, profilePhoto } };
+          setComments(prev => [...prev, toAdd]);
         }
       } else {
         // Fallback to local state if no callback provided
@@ -159,8 +160,8 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
             {comments.map((comment, index) => {
               const commentId = comment._id || comment.id;
               const commentContent = comment.content || comment.text;
-              const commentUser = comment.user?.username || comment.username;
-              const commentImage = comment.user?.profilePhoto || comment.image;
+              const commentUser = comment.user?.username || comment.username || comment.author?.username || comment.user?.displayName || comment.author?.displayName || 'User';
+              const commentImage = comment.user?.profilePhoto || comment.author?.profilePhoto || comment.author?.avatar || comment.image;
               const commentLikes = comment.likesCount || comment.likes || 0;
               const isCommentLiked = comment.isLiked || comment.liked;
               const commentAuthorId = comment.userId || comment.user?.uid;
