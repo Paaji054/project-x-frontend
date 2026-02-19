@@ -289,9 +289,11 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
 
     try {
       // Backend expects: conversationId, recipientId, text, mediaUrl
+      // Note: otherUser.uid is the recipient's user ID (not _id)
+      const recipientId = activeChat.otherUser?.uid || activeChat.otherUser?._id || activeChat.otherUser?.id;
       const sentMessage = await messageService.sendMessage(
         activeChat._id,
-        activeChat.otherUser._id,
+        recipientId,
         messageText,
         null
       );
