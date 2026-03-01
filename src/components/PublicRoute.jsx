@@ -1,13 +1,14 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 /**
  * PublicRoute Component
  * Prevents authenticated users from accessing public routes like login/register
- * Redirects authenticated users to home page
+ * Redirects authenticated users to home or to their intended destination (from state)
  */
 const PublicRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
 
   // Show loading spinner while checking authentication
   if (isLoading) {
@@ -21,9 +22,12 @@ const PublicRoute = ({ children }) => {
     );
   }
 
-  // If already authenticated, redirect to home
+  // If already authenticated, redirect to intended path (from state) or home
   if (isAuthenticated) {
-    return <Navigate to="/home" replace />;
+    const from = location.state?.from?.pathname;
+    const isValidFrom = typeof from === 'string' && from !== '' && from !== '/login' && from.startsWith('/');
+    const to = isValidFrom ? from : '/home';
+    return <Navigate to={to} state={location.state?.from?.state} replace />;
   }
 
   // User is not authenticated, allow access to public route

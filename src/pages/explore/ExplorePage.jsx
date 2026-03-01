@@ -49,9 +49,10 @@ export default function ExplorePage({ onViewUserProfile }) {
     try {
       setLoading(true);
       setError(null);
-      const trendingPosts = await postService.getTrending();
+      // Request a larger set so Explore shows a full catalog across categories (not just one)
+      const trendingPosts = await postService.getTrending(40, 1);
       let allPosts = trendingPosts.posts || [];
-      // Apply category filter if selected
+      // Apply category filter only when user selects one; default shows all
       if (selectedCategory) {
         allPosts = allPosts.filter(post => post.category === selectedCategory);
       }

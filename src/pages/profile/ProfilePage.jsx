@@ -129,9 +129,9 @@ const fetchProfileData = async () => {
     
     setProfileData(safeUserData);
 
-    // Fetch user posts
-    const userPosts = await postService.getUserPosts(actualUsername);
-    const postsArray = userPosts?.posts || userPosts || [];
+    // Fetch user posts (use same API shape as OtherUserProfile for consistency)
+    const userPosts = await postService.getUserPosts(actualUsername, 50, 1);
+    const postsArray = userPosts?.posts ?? [];
     setPosts(Array.isArray(postsArray) ? postsArray : []);
 
     // Don't fetch followers/following immediately - lazy load when modal opens

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { authService } from "../../services/authService";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { login } = useAuth();
   const [username, setUsername] = useState("");
@@ -314,9 +315,13 @@ export default function LoginPage() {
 
       if (response.success) {
         createSuccessParticles();
-        // Wait a moment for animation before redirecting
+        // Redirect to the page the user was trying to visit (e.g. after session expiry), or home
+        const from = location.state?.from?.pathname;
+        const isValidFrom = typeof from === 'string' && from !== '' && from !== '/login' && from.startsWith('/');
+        const redirectTo = isValidFrom ? from : '/home';
+        const redirectState = location.state?.from?.state;
         setTimeout(() => {
-          onLogin();
+          navigate(redirectTo, { replace: true, state: redirectState });
         }, 500);
       } else {
         setError(response.message || "Login failed. Please try again.");

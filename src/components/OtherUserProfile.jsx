@@ -50,44 +50,39 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
 
   // Fetch user profile data with optimized parallel loading
   const fetchUserProfile = async () => {
-    console.log('fetchUserProfile: Starting...', viewedUser);
+    if (!viewedUser) return;
     setLoading(true);
     setError(null);
-    
+
     try {
-      // Fetch user data first (most important)
-      console.log('fetchUserProfile: Fetching user data...');
       const userResponse = await userService.getUserByUsername(viewedUser);
-      console.log('fetchUserProfile: User data received:', userResponse);
-      
+
       if (!userResponse) {
         throw new Error('User not found');
       }
-      
+
       const user = userResponse.user || userResponse;
       setUserData(user);
       setIsFollowing(user?.isFollowing || false);
 
       // Fetch other data in parallel for faster loading
-      console.log('fetchUserProfile: Fetching posts, followers, following in parallel...');
       const [userPosts, followersData, followingData] = await Promise.allSettled([
-        postService.getUserPosts(viewedUser),
+        postService.getUserPosts(viewedUser, 50, 1),
         userService.getUserFollowers(viewedUser),
         userService.getUserFollowing(viewedUser)
       ]);
 
-      // Handle posts
+      // Handle posts: API returns { posts: [...] }; ensure we always set an array
       if (userPosts.status === 'fulfilled') {
-        console.log('fetchUserProfile: Posts data:', userPosts.value);
-        const postsArray = userPosts.value?.posts || [];
-        const isPrivate = userPosts.value?.isPrivate || false;
-        const isFollowing = userPosts.value?.isFollowing !== undefined ? userPosts.value.isFollowing : user?.isFollowing || false;
-        
-        // If account is private and not following, show empty posts
-        if (isPrivate && !isFollowing && user?.accountType === 'private') {
+        const raw = userPosts.value;
+        const postsArray = Array.isArray(raw?.posts) ? raw.posts : (Array.isArray(raw) ? raw : []);
+        const isPrivate = raw?.isPrivate || false;
+        const isFollowingUser = raw?.isFollowing !== undefined ? raw.isFollowing : user?.isFollowing || false;
+
+        if (isPrivate && !isFollowingUser && user?.accountType === 'private') {
           setPosts([]);
         } else {
-          setPosts(Array.isArray(postsArray) ? postsArray : []);
+          setPosts(postsArray);
         }
       } else {
         console.error('Error fetching posts:', userPosts.reason);
@@ -96,30 +91,23 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
 
       // Handle followers
       if (followersData.status === 'fulfilled') {
-        console.log('fetchUserProfile: Followers data:', followersData.value);
         const followersArray = followersData.value?.followers || [];
         setFollowersList(Array.isArray(followersArray) ? followersArray : []);
       } else {
-        console.error('Error fetching followers:', followersData.reason);
         setFollowersList([]);
       }
 
       // Handle following
       if (followingData.status === 'fulfilled') {
-        console.log('fetchUserProfile: Following data:', followingData.value);
         const followingArray = followingData.value?.following || [];
         setFollowingList(Array.isArray(followingArray) ? followingArray : []);
       } else {
-        console.error('Error fetching following:', followingData.reason);
         setFollowingList([]);
       }
-
-      console.log('fetchUserProfile: Complete!');
     } catch (err) {
       console.error('Error fetching user profile:', err);
       setError(err.message || 'Failed to load user profile');
     } finally {
-      console.log('fetchUserProfile: Setting loading to false');
       setLoading(false);
     }
   };

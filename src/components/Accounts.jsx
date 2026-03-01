@@ -68,10 +68,13 @@ export default function Accounts({ searchQuery = "", hasSearched = false }) {
                   msOverflowStyle: 'none',
                 }}
               >
-                {searchResults.map((account) => (
+                {searchResults.map((account) => {
+                  const username = account?.username;
+                  if (!username) return null;
+                  return (
                   <Link
                     key={account._id || account.id}
-                    to={`/profile/${account.username}`}
+                    to={`/user/${username}`}
                     className="flex flex-col items-center min-w-[100px] md:min-w-[120px] flex-shrink-0"
                   >
                     <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gray-200 dark:bg-gray-700 mb-3 border border-gray-300 dark:border-gray-600 hover:border-primary transition-all overflow-hidden">
@@ -92,7 +95,8 @@ export default function Accounts({ searchQuery = "", hasSearched = false }) {
                       {account.displayName || account.name}
                     </p>
                   </Link>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ) : (
@@ -110,10 +114,13 @@ export default function Accounts({ searchQuery = "", hasSearched = false }) {
 
       {suggestedAccounts.length > 0 ? (
         <div className="flex flex-wrap gap-6 md:gap-8">
-          {suggestedAccounts.map((account) => (
+          {suggestedAccounts.map((account) => {
+            const username = account?.username;
+            if (!username) return null;
+            return (
             <Link
               key={account._id || account.id}
-              to={`/profile/${account.username}`}
+              to={`/user/${username}`}
               className="flex items-center gap-4 border border-black dark:border-gray-700 rounded-lg px-4 py-3 md:px-6 md:py-4 hover:border-primary transition-all bg-white dark:bg-[#0f0f0f]"
             >
               <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gray-200 dark:bg-gray-600 overflow-hidden">
@@ -136,7 +143,8 @@ export default function Accounts({ searchQuery = "", hasSearched = false }) {
                 </p>
               </div>
             </Link>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="text-center py-8">
