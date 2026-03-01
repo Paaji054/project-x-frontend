@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { authService } from "../../services/authService";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -26,6 +27,20 @@ export default function LoginPage() {
   const backgroundElementsRef = useRef(null);
   const gridBackgroundRef = useRef(null);
   const scanLineRef = useRef(null);
+
+  // Handle OAuth callback errors (e.g. user cancelled Google sign-in)
+  useEffect(() => {
+    const authError = searchParams.get('auth_error');
+    if (authError) {
+      const messages = {
+        access_denied: "You cancelled sign in. Try again when you're ready.",
+        unauthorized: "Sign in was not authorized. Please try again.",
+        server_error: "Something went wrong. Please try again.",
+      };
+      setError(messages[authError] || "Sign in did not complete. Please try again.");
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Create floating particles
   useEffect(() => {

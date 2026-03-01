@@ -239,10 +239,12 @@ export const authService = {
   },
 
   /**
-   * Google OAuth login URL
+   * Google OAuth login URL.
+   * Returns a frontend path so the backend URL is not exposed in the client interface.
+   * The frontend route /auth/signin-google redirects to the backend OAuth endpoint.
    */
   getGoogleLoginURL() {
-    return `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}${API_ENDPOINTS.AUTH.GOOGLE}`;
+    return '/auth/signin-google';
   },
 
   /**

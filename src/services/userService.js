@@ -26,9 +26,9 @@ export const userService = {
       const response = await api.put(API_ENDPOINTS.USERS.PROFILE, profileData);
       
       if (response.success && response.data) {
-        // Update stored user data
-        localStorage.setItem('user', JSON.stringify(response.data));
-        return response.data;
+        const userData = response.data.user || response.data;
+        localStorage.setItem('user', JSON.stringify(userData));
+        return { user: userData };
       }
       
       return response;

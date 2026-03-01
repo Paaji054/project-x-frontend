@@ -113,7 +113,9 @@ class HTTPClient {
     }
 
     if (!response.ok) {
-      const message = data?.message || data?.error || `HTTP ${response.status}: ${response.statusText}`;
+      const message = (typeof data?.error === 'object' && data?.error?.message)
+        ? data.error.message
+        : (data?.message || (typeof data?.error === 'string' ? data.error : null) || `HTTP ${response.status}: ${response.statusText}`);
       throw new APIError(message, response.status, data);
     }
 

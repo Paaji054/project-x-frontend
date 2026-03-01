@@ -27,6 +27,7 @@ import Notifications from "./components/Notifications";
 import AddStory from "./components/AddStory";
 import OtherUserProfile from "./components/OtherUserProfile";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
+import SignInGoogleRedirect from "./pages/auth/SignInGoogleRedirect";
 import AITools from "./components/AITools";
 
 export default function App() {
@@ -189,6 +190,9 @@ export default function App() {
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
       <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+      
+      {/* Frontend-only path for Google sign-in to avoid exposing backend URL in client */}
+      <Route path="/auth/signin-google" element={<SignInGoogleRedirect />} />
       
       {/* OAuth Callback & Username Setup - Special handling */}
       <Route path="/auth/callback" element={<AuthCallback />} />

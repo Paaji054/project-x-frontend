@@ -17,6 +17,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
   const [statsLoading, setStatsLoading] = useState(true);
 
   const [formData, setFormData] = useState({
+    username: user?.username || "",
     displayName: user?.displayName || "",
     bio: user?.bio || "",
     email: user?.email || "",
@@ -42,6 +43,9 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
   const [saveError, setSaveError] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [usernameError, setUsernameError] = useState("");
+  const [usernameAvailable, setUsernameAvailable] = useState(null);
+  const usernameCheckRef = useRef(null);
 
   // Preview states (not saved until "Save Changes" is clicked)
   const [profilePhotoPreview, setProfilePhotoPreview] = useState(
@@ -91,14 +95,58 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
     };
   }, [user?.username]);
 
+  // Sync formData when user updates (e.g. from auth context)
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        username: user.username || prev.username,
+        displayName: user.displayName ?? prev.displayName,
+        bio: user.bio ?? prev.bio,
+        email: user.email ?? prev.email,
+        phone: user.phone ?? prev.phone,
+        gender: user.gender ?? prev.gender,
+        website: user.website ?? prev.website
+      }));
+    }
+  }, [user]);
+
   const photoInputRef = useRef(null);
   const videoInputRef = useRef(null);
 
   const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    if (name === 'username') {
+      const normalized = value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+      setFormData({ ...formData, username: normalized });
+      setUsernameError('');
+      setUsernameAvailable(null);
+      if (normalized.length >= 3 && normalized !== (user?.username || '')) {
+        if (usernameCheckRef.current) clearTimeout(usernameCheckRef.current);
+        usernameCheckRef.current = setTimeout(() => {
+          userService.getUserByUsername(normalized)
+            .then((data) => {
+              const existing = data?.user || data;
+              if (existing && existing.uid !== user?.uid) {
+                setUsernameAvailable(false);
+                setUsernameError('Username is already taken');
+              } else {
+                setUsernameAvailable(true);
+                setUsernameError('');
+              }
+            })
+            .catch(() => {
+              setUsernameAvailable(true);
+              setUsernameError('');
+            });
+        }, 500);
+      } else if (normalized === (user?.username || '')) {
+        setUsernameAvailable(true);
+        setUsernameError('');
+      }
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
 
   const handleNotificationToggle = (key) => {
@@ -195,12 +243,29 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
   };
 
   const handleSaveChanges = async () => {
+    const newUsername = (formData.username || '').trim().toLowerCase();
+    if (newUsername && newUsername !== (user?.username || '')) {
+      if (newUsername.length < 3 || newUsername.length > 30) {
+        setSaveError('Username must be 3–30 characters');
+        return;
+      }
+      if (!/^[a-zA-Z0-9_]+$/.test(newUsername)) {
+        setSaveError('Username can only contain letters, numbers, and underscores');
+        return;
+      }
+      if (usernameAvailable === false || (usernameAvailable === null && newUsername !== user?.username)) {
+        setSaveError('Please choose an available username');
+        return;
+      }
+    }
+
     setIsSaving(true);
     setSaveError(null);
     
     try {
       // Create update data object matching backend validation schema
       const updateData = {
+        username: (formData.username || '').trim().toLowerCase() || undefined,
         displayName: formData.displayName,
         bio: formData.bio,
         email: formData.email,
@@ -211,6 +276,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
         notificationSettings: notifications,
         readReceiptsEnabled: readReceiptsEnabled
       };
+      if (!updateData.username) delete updateData.username;
 
       // Add uploaded media URLs if they exist
       if (profilePhotoPreview) {
@@ -393,19 +459,25 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
               </div>
             </div>
 
-            {/* Username (Read-only) */}
+            {/* Username (editable) */}
             <div>
               <label className="block text-sm font-medium text-primary mb-2">
                 Username
               </label>
               <input
                 type="text"
-                value={user?.username || ''}
-                readOnly
-                disabled
-                className="w-full bg-gray-200 dark:bg-[#121212] border border-black dark:border-gray-800 rounded-lg px-4 py-3 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                name="username"
+                value={formData.username}
+                onChange={handleInputChange}
+                placeholder="3–30 characters, letters, numbers, underscores"
+                maxLength={30}
+                className="w-full bg-gray-100 dark:bg-[#1a1a1a] border border-black dark:border-gray-800 rounded-lg px-4 py-3 text-black dark:text-white placeholder-gray-600 focus:outline-none focus:border-primary transition-colors"
               />
-              <p className="text-xs text-gray-500 mt-1">Username cannot be changed</p>
+              {usernameError && <p className="text-xs text-red-500 mt-1">{usernameError}</p>}
+              {usernameAvailable === true && !usernameError && formData.username.length >= 3 && (
+                <p className="text-xs text-green-500 mt-1">Username is available</p>
+              )}
+              <p className="text-xs text-gray-500 mt-1">{formData.username.length}/30 characters</p>
             </div>
 
             {/* Display Name */}
@@ -489,14 +561,17 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
               <label className="block text-sm font-medium text-primary mb-2">
                 Gender
               </label>
-              <input
-                type="text"
+              <select
                 name="gender"
-                value={formData.gender}
+                value={formData.gender || ''}
                 onChange={handleInputChange}
-                placeholder="Enter gender"
-                className="w-full bg-gray-100 dark:bg-[#1a1a1a] border border-black dark:border-gray-800 rounded-lg px-4 py-3 text-black dark:text-white placeholder-gray-600 focus:outline-none focus:border-primary transition-colors"
-              />
+                className="w-full bg-gray-100 dark:bg-[#1a1a1a] border border-black dark:border-gray-800 rounded-lg px-4 py-3 text-black dark:text-white focus:outline-none focus:border-primary transition-colors"
+              >
+                <option value="">Prefer not to say</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="prefer_not_to_say">Prefer not to say</option>
+              </select>
             </div>
           </div>
 

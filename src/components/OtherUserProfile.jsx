@@ -23,6 +23,14 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
 
   const viewedUser = viewedUsername || "sheryanne_xoxo";
 
+  // Redirect to own profile when viewing self (e.g. clicked own name in a comment)
+  useEffect(() => {
+    if (!currentUsername || !viewedUser) return;
+    if (String(currentUsername).toLowerCase() === String(viewedUser).toLowerCase()) {
+      navigate('/profile', { replace: true });
+    }
+  }, [currentUsername, viewedUser, navigate]);
+
   // Profile data state
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -49,13 +57,14 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
     try {
       // Fetch user data first (most important)
       console.log('fetchUserProfile: Fetching user data...');
-      const user = await userService.getUserByUsername(viewedUser);
-      console.log('fetchUserProfile: User data received:', user);
+      const userResponse = await userService.getUserByUsername(viewedUser);
+      console.log('fetchUserProfile: User data received:', userResponse);
       
-      if (!user) {
+      if (!userResponse) {
         throw new Error('User not found');
       }
       
+      const user = userResponse.user || userResponse;
       setUserData(user);
       setIsFollowing(user?.isFollowing || false);
 
@@ -215,10 +224,9 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
       }
     } catch (err) {
       console.error("Error toggling follow:", err);
-      // Revert on error
       setIsFollowing(previousFollowingState);
-      const errorMessage = err?.message || err?.error?.message || "Failed to update follow status. Please try again.";
-      alert(errorMessage);
+      const msg = err?.message ?? err?.data?.error ?? (typeof err?.data === 'string' ? err.data : null) ?? (err?.error?.message) ?? "Failed to update follow status. Please try again.";
+      alert(msg);
     }
   };
 
