@@ -353,7 +353,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
   }
 
   // Crop image properly using canvas with zoom and position
-  const cropImage = (imageSrc, callback) => {
+  const cropImage = (imageSrc, callback, overrideAspect) => {
     const img = new Image();
     // Set crossOrigin to allow external images
     if (imageSrc.startsWith('http://') || imageSrc.startsWith('https://')) {
@@ -367,30 +367,32 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
     img.onload = () => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
+      const effectiveAspect = overrideAspect != null ? overrideAspect : aspectRatio;
 
       // Calculate crop area based on aspect ratio
-      const cropDims = calculateCropDimensions(img.width, img.height, aspectRatio);
+      const cropDims = calculateCropDimensions(img.width, img.height, effectiveAspect);
 
       // The canvas will be the final cropped size
       canvas.width = Math.round(cropDims.width);
       canvas.height = Math.round(cropDims.height);
 
       // Calculate source rectangle considering zoom and drag position
-      const zoom = cropData.zoom;
-      const dragX = cropData.x || 0;
-      const dragY = cropData.y || 0;
+      // When bypassing crop we use "original" aspect and default zoom - no drag
+      const effectiveZoom = overrideAspect != null && overrideAspect === 'original' ? 1 : cropData.zoom;
+      const effectiveDragX = overrideAspect != null && overrideAspect === 'original' ? 0 : (cropData.x || 0);
+      const effectiveDragY = overrideAspect != null && overrideAspect === 'original' ? 0 : (cropData.y || 0);
 
       // When zoomed, we see less of the image (smaller source area)
-      const sourceWidth = cropDims.width / zoom;
-      const sourceHeight = cropDims.height / zoom;
+      const sourceWidth = cropDims.width / effectiveZoom;
+      const sourceHeight = cropDims.height / effectiveZoom;
 
       // Center point of the crop area
       const cropCenterX = cropDims.x + cropDims.width / 2;
       const cropCenterY = cropDims.y + cropDims.height / 2;
 
       // Apply drag offset (inverse - dragging right shows more left side)
-      const sourceCenterX = cropCenterX - dragX / zoom;
-      const sourceCenterY = cropCenterY - dragY / zoom;
+      const sourceCenterX = cropCenterX - effectiveDragX / effectiveZoom;
+      const sourceCenterY = cropCenterY - effectiveDragY / effectiveZoom;
 
       // Calculate source top-left corner
       let sourceX = sourceCenterX - sourceWidth / 2;
@@ -489,7 +491,16 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
 
       // Determine the final image to upload
       let imageToUpload = finalEditedImage || croppedImage || imagePreview;
-      
+
+      // When user bypassed crop step (e.g. mobile or back from crop), apply original-aspect crop
+      // so published image matches a consistent "no crop" preview instead of raw aspect mismatch.
+      const isImage = selectedFile?.type?.startsWith('image/');
+      if (isImage && !communityId && imagePreview && !croppedImage && imageToUpload === imagePreview) {
+        imageToUpload = await new Promise((resolve) => {
+          cropImage(imagePreview, resolve, 'original');
+        });
+      }
+
       if (!imageToUpload) {
         setUploadError('No image selected');
         return;

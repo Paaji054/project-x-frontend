@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Stories from "../../components/Stories";
 import PostCard from "../../components/PostCard";
+import PostDetailModal from "../../components/PostDetailModal";
 import Comments from "../../components/Comments";
 import { postService } from "../../services";
 import { useUserProfile } from "../../hooks/useUserProfile";
@@ -13,6 +14,7 @@ export default function HomePage({ onViewUserProfile }) {
   const { user } = useAuth();
   const currentUserId = user?.uid || user?.id || user?._id;
   const [activePostId, setActivePostId] = useState(null);
+  const [selectedPost, setSelectedPost] = useState(null);
   const [postsComments, setPostsComments] = useState({});
 
   // Feed state
@@ -192,7 +194,10 @@ export default function HomePage({ onViewUserProfile }) {
   };
 
   const handleDeletePost = (postId) => {
-    setPosts(posts.filter(p => (p.id || p._id) !== postId));
+    const idStr = postId != null ? String(postId) : '';
+    if (!idStr) return;
+    setPosts((prev) => prev.filter((p) => String(p.id || p._id) !== idStr));
+    setSelectedPost(null);
   };
 
   return (
@@ -234,6 +239,7 @@ export default function HomePage({ onViewUserProfile }) {
                 onCommentClick={handleCommentClick}
                 isActive={activePostId === (post.id || post._id)}
                 onViewUserProfile={onViewUserProfile}
+                onClick={() => setSelectedPost(post)}
                 onDelete={handleDeletePost}
                 currentUsername={currentUsername}
               />
@@ -299,6 +305,15 @@ export default function HomePage({ onViewUserProfile }) {
           </div>
         </div>
       </div>
+
+      <PostDetailModal
+        isOpen={!!selectedPost}
+        onClose={() => setSelectedPost(null)}
+        post={selectedPost}
+        onViewUserProfile={onViewUserProfile}
+        currentUserId={currentUserId}
+        onPostDeleted={handleDeletePost}
+      />
     </main>
   );
 }

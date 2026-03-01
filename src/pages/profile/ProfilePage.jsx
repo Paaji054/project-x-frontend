@@ -465,7 +465,8 @@ const fetchProfileData = async () => {
         onViewUserProfile={onViewUserProfile}
         currentUserId={user?.uid || user?.id}
         onPostDeleted={(deletedPostId) => {
-          setPosts((prev) => prev.filter((p) => (p._id || p.id) !== deletedPostId));
+          const idStr = deletedPostId != null ? String(deletedPostId) : '';
+          if (idStr) setPosts((prev) => prev.filter((p) => String(p._id || p.id) !== idStr));
           handleCloseModal();
         }}
       />

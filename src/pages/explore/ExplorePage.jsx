@@ -385,6 +385,11 @@ export default function ExplorePage({ onViewUserProfile }) {
         post={selectedPost}
         onViewUserProfile={onViewUserProfile}
         currentUserId={currentUserId}
+        onPostDeleted={(deletedPostId) => {
+          const idStr = deletedPostId != null ? String(deletedPostId) : '';
+          if (idStr) setPosts((prev) => prev.filter((p) => String(p._id || p.id) !== idStr));
+          handleClosePostModal();
+        }}
       />
     </main>
   );

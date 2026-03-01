@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Heart } from "lucide-react";
 import ShareModal from "./ShareModal";
 import commentIcon from "../assets/comment.svg";
@@ -24,12 +24,21 @@ export default function PostCard({
   const [likes, setLikes] = useState(postData.likesCount || postData.likes || 0);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
+  // Sync like state from backend when post data updates (e.g. after refresh/navigation)
+  useEffect(() => {
+    setLiked(postData.isLiked || false);
+    setLikes(postData.likesCount ?? postData.likes ?? 0);
+  }, [postData.isLiked, postData.likesCount, postData.likes]);
+
   const postImage = postData.imageUrl || postData.image || postData.images?.[0];
   const profileImage = author.profilePhoto || author.avatar || author.profilePicture || postData.profileImage;
   const username = author.username || postData.username || 'user';
   const caption = postData.caption || postData.content || "";
 
   const handleLike = async () => {
+    const id = postData._id || postId;
+    if (!id) return;
+
     const previousLiked = liked;
     const previousLikes = likes;
 
@@ -38,12 +47,10 @@ export default function PostCard({
     setLikes(liked ? likes - 1 : likes + 1);
 
     try {
-      const id = postData._id || postId;
-      
       if (liked) {
-        await postService.unlikePost(id);
+        await postService.unlikePost(String(id));
       } else {
-        await postService.likePost(id);
+        await postService.likePost(String(id));
       }
     } catch (err) {
       console.error("Error toggling like:", err);

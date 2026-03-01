@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart, X, MoreVertical, Trash2 } from "lucide-react";
 import ShareModal from "./ShareModal";
+import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import commentIcon from "../assets/comment.svg";
 import messageIcon from "../assets/message.svg";
 import LiveProfilePhoto from "./LiveProfilePhoto";
@@ -22,6 +23,7 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
   const [postMenuOpen, setPostMenuOpen] = useState(false);
   const [commentMenuOpenId, setCommentMenuOpenId] = useState(null);
   const [isDeletingPost, setIsDeletingPost] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingCommentId, setDeletingCommentId] = useState(null);
   
   // Get current logged-in user data (for new comment display)
@@ -112,9 +114,9 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
 
       // API call
       if (wasLiked) {
-        await postService.unlikePost(postId);
+        await postService.unlikePost(String(postId));
       } else {
-        await postService.likePost(postId);
+        await postService.likePost(String(postId));
       }
     } catch (error) {
       console.error('Error liking post:', error);
@@ -197,12 +199,13 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
     try {
       setIsDeletingPost(true);
       setPostMenuOpen(false);
-      await postService.deletePost(postId);
-      if (onPostDeleted) onPostDeleted(postId);
+      await postService.deletePost(String(postId));
+      if (onPostDeleted) onPostDeleted(String(postId));
       onClose();
     } catch (err) {
       console.error("Failed to delete post:", err);
       alert("Failed to delete post. Please try again.");
+      throw err; // rethrow so DeleteConfirmationModal stays open
     } finally {
       setIsDeletingPost(false);
     }
@@ -274,12 +277,14 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                           onClick={(e) => e.stopPropagation()}
                         >
                           <button
-                            onClick={handleDeletePost}
-                            disabled={isDeletingPost}
+                            onClick={() => {
+                              setPostMenuOpen(false);
+                              setShowDeleteConfirm(true);
+                            }}
                             className="w-full flex items-center gap-2 px-4 py-2.5 text-left text-red-400 hover:bg-gray-800 transition"
                           >
                             <Trash2 className="w-4 h-4" />
-                            {isDeletingPost ? "Deleting..." : "Delete post"}
+                            Delete post
                           </button>
                         </motion.div>
                       </>
@@ -545,6 +550,17 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
             onViewUserProfile={onViewUserProfile}
             postId={postId}
             postUrl={postImage}
+          />
+
+          {/* Delete post confirmation - permanently removes from database */}
+          <DeleteConfirmationModal
+            isOpen={showDeleteConfirm}
+            onClose={() => setShowDeleteConfirm(false)}
+            onConfirm={handleDeletePost}
+            title="Delete post?"
+            message="Are you sure? This action cannot be undone. The post will be permanently removed from the database."
+            confirmLabel="Delete post"
+            cancelLabel="Cancel"
           />
         </>
       )}

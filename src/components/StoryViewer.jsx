@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Heart, Send, SendHorizonal, MoreVertical, Trash2 } from "lucide-react";
 import ShareModal from "./ShareModal";
+import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import { storyService } from "../services/storyService";
 import { messageService } from "../services/messageService";
 
@@ -14,6 +15,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
   const [liked, setLiked] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [storyMenuOpen, setStoryMenuOpen] = useState(false);
+  const [showDeleteStoryConfirm, setShowDeleteStoryConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [isSendingReply, setIsSendingReply] = useState(false);
@@ -180,6 +182,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
     } catch (err) {
       console.error("Failed to delete story:", err);
       alert("Failed to delete story. Please try again.");
+      throw err; // rethrow so DeleteConfirmationModal keeps modal open
     } finally {
       setIsDeleting(false);
     }
@@ -282,12 +285,14 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                         onClick={(e) => e.stopPropagation()}
                       >
                         <button
-                          onClick={handleDeleteStory}
-                          disabled={isDeleting}
+                          onClick={() => {
+                            setStoryMenuOpen(false);
+                            setShowDeleteStoryConfirm(true);
+                          }}
                           className="w-full flex items-center gap-2 px-4 py-2.5 text-left text-red-400 hover:bg-gray-800 transition"
                         >
                           <Trash2 className="w-4 h-4" />
-                          {isDeleting ? "Deleting..." : "Delete"}
+                          Delete
                         </button>
                       </motion.div>
                     </>
@@ -481,6 +486,17 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
 
         {/* Share Modal */}
         <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} />
+
+        {/* Delete story confirmation - permanently removes from database */}
+        <DeleteConfirmationModal
+          isOpen={showDeleteStoryConfirm}
+          onClose={() => setShowDeleteStoryConfirm(false)}
+          onConfirm={handleDeleteStory}
+          title="Delete story?"
+          message="Are you sure? This action cannot be undone. The story will be permanently removed from the database."
+          confirmLabel="Delete story"
+          cancelLabel="Cancel"
+        />
       </motion.div>
     </AnimatePresence>
   );
