@@ -570,7 +570,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
                 <option value="">Prefer not to say</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
-                <option value="prefer_not_to_say">Prefer not to say</option>
+                <option value="other">Other</option>
               </select>
             </div>
           </div>

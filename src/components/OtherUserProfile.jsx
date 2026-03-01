@@ -128,6 +128,12 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
   };
 
   const handleFollow = async () => {
+    // Prevent following self (e.g. if redirect to own profile hasn't run yet)
+    const profileUid = userData?.uid || userData?._id;
+    if (currentUserId && profileUid === currentUserId) {
+      navigate('/profile', { replace: true });
+      return;
+    }
     const newFollowingState = !isFollowing;
     const previousFollowingState = isFollowing;
     
@@ -245,8 +251,10 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
       ));
     } catch (err) {
       console.error("Error following user:", err);
-      const errorMessage = err?.message || err?.error?.message || "Failed to follow user. Please try again.";
+      const raw = err?.message ?? err?.data?.error?.message ?? err?.error?.message ?? err?.data?.error ?? err?.error;
+      const errorMessage = typeof raw === 'string' ? raw : (raw?.message ? String(raw.message) : "Failed to follow user. Please try again.");
       alert(errorMessage);
+      setIsFollowing(previousFollowingState);
     }
   };
 
@@ -416,7 +424,22 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
               </button>
             </motion.div>
 
-            {/* Follow and Message Buttons */}
+            {/* Follow and Message Buttons - hide when viewing own profile (e.g. before redirect runs) */}
+            {currentUserId && (userData?.uid || userData?._id) === currentUserId ? (
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+                className="w-full max-w-md px-4"
+              >
+                <button
+                  onClick={() => navigate('/profile', { replace: true })}
+                  className="w-full px-4 py-2 rounded-lg font-semibold text-sm bg-gray-200 dark:bg-gray-800 text-black dark:text-white"
+                >
+                  View my profile
+                </button>
+              </motion.div>
+            ) : (
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -440,6 +463,7 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
                 Message
               </button>
             </motion.div>
+            )}
           </div>
         </div>
 
