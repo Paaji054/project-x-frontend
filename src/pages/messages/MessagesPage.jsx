@@ -5,8 +5,9 @@ import { getProfileVideoUrl } from "../../utils/profileVideos";
 import themeIcon from "../../assets/theme.svg";
 import catTheme from "../../assets/cat_theme.jpg";
 import xoxoTheme from "../../assets/xoxo_theme.jpg";
-import { messageService, userService } from "../../services";
+import { messageService, userService, socketService } from "../../services";
 import { useAuth } from "../../context/AuthContext";
+import { tokenManager } from "../../utils/httpClient";
 
 export default function MessagesPage({ onViewUserProfile, selectedChatUsername }) {
   const { user } = useAuth(); // Get current user to identify message sender
@@ -27,6 +28,57 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
   const [showThemePicker, setShowThemePicker] = useState(false);
   const themePickerRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const activeChatRef = useRef(null);
+
+  // Keep ref in sync for socket listener
+  useEffect(() => {
+    activeChatRef.current = activeChat;
+  }, [activeChat]);
+
+  // Connect socket when user is authenticated so we can receive real-time messages
+  useEffect(() => {
+    if (!user) return;
+    const token = tokenManager.getAccessToken();
+    if (token && !tokenManager.isTokenExpired()) {
+      socketService.connect(token);
+    }
+  }, [user]);
+
+  // Join active chat room and listen for new messages (so recipient sees messages in real time)
+  useEffect(() => {
+    if (!activeChat?._id) return;
+    socketService.joinConversation(activeChat._id);
+
+    const handleNewMessage = (payload) => {
+      const { message: msg, chatId } = payload || {};
+      if (!msg || String(chatId) !== String(activeChatRef.current?._id)) return;
+      const uid = activeChatRef.current && (activeChatRef.current.otherUser?.uid || activeChatRef.current.otherUser?._id || activeChatRef.current.otherUser?.id);
+      const currentUid = currentUserId;
+      const newMsg = {
+        id: msg._id || msg.id,
+        text: msg.text || msg.mediaUrl || '',
+        sender: msg.senderId === currentUid ? 'sender' : 'receiver',
+        time: new Date(msg.createdAt || Date.now()).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        status: msg.senderId === currentUid ? (msg.readAt ? 'read' : (msg.deliveredAt ? 'delivered' : 'sent')) : null,
+        isDelivered: !!msg.deliveredAt,
+        isRead: !!msg.readAt,
+        type: msg.type || 'text',
+        mediaUrl: msg.mediaUrl,
+      };
+      setMessages((prev) => {
+        if (prev.some((m) => String(m.id) === String(newMsg.id))) return prev;
+        return [...prev, newMsg];
+      });
+    };
+
+    socketService.onNewMessage(handleNewMessage);
+    return () => {
+      socketService.leaveConversation(activeChat._id);
+      if (socketService.socket) {
+        socketService.socket.off('receive_message', handleNewMessage);
+      }
+    };
+  }, [activeChat?._id, currentUserId]);
 
   // API state
   const [conversations, setConversations] = useState([]);
