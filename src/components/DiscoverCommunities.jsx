@@ -290,6 +290,28 @@ export default function DiscoverCommunities({ onBack }) {
 
         {!loading && !error && (
           <>
+        {/* Join with code - prominent entry point */}
+        <div className="mb-8 p-4 rounded-xl border border-primary/30 bg-primary/5 dark:bg-primary/10">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <Key className="w-5 h-5 text-primary flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-black dark:text-white">Have a community code?</h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">Enter the code to join a specific community.</p>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedCommunity(null);
+                setCodeInput('');
+                setCodeError('');
+                setShowCodeModal(true);
+              }}
+              className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-700 transition whitespace-nowrap"
+            >
+              Join with code
+            </button>
+          </div>
+        </div>
+
         {/* Search and Categories */}
         <div className="mb-8">
           <h2 className="text-base md:text-lg text-gray-700 dark:text-gray-300 mb-4">What are you looking for?</h2>
@@ -365,13 +387,17 @@ export default function DiscoverCommunities({ onBack }) {
         )}
       </div>
 
-      {/* Community Code Modal */}
-      {showCodeModal && selectedCommunity && (
+      {/* Community Code Modal - shown for "Join with code" (no selected community) or when joining a private community from list */}
+      {showCodeModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-white dark:bg-[#121212] rounded-xl p-6 max-w-md w-full border border-black dark:border-gray-800">
-            <h2 className="text-xl font-semibold text-black dark:text-white mb-2">Enter Community Code</h2>
+            <h2 className="text-xl font-semibold text-black dark:text-white mb-2">
+              {selectedCommunity ? 'Enter Community Code' : 'Join with a code'}
+            </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Please enter the community code to join this community.
+              {selectedCommunity
+                ? 'Please enter the community code to join this community.'
+                : 'Enter the 6-character code shared by the community to join.'}
             </p>
             <div className="space-y-4">
               <div>

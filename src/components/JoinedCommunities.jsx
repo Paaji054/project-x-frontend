@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Key } from "lucide-react";
 import { communityService } from "../services/communityService";
 import LiveBanner from "./LiveBanner";
 import LiveProfilePhoto from "./LiveProfilePhoto";
@@ -10,6 +11,10 @@ export default function JoinedCommunities({ onDiscoverClick }) {
   const [communities, setCommunities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [joinCode, setJoinCode] = useState("");
+  const [joinCodeLoading, setJoinCodeLoading] = useState(false);
+  const [joinCodeError, setJoinCodeError] = useState("");
+  const [joinCodeSuccess, setJoinCodeSuccess] = useState("");
 
   useEffect(() => {
     fetchJoinedCommunities();
@@ -63,6 +68,29 @@ export default function JoinedCommunities({ onDiscoverClick }) {
     const identifier = community.slug || community._id || community.id;
     navigate(`/communities/${identifier}`);
   };
+
+  const handleJoinByCode = async () => {
+    const code = joinCode.trim().toUpperCase();
+    if (!code) {
+      setJoinCodeError("Please enter a community code.");
+      return;
+    }
+    setJoinCodeError("");
+    setJoinCodeSuccess("");
+    setJoinCodeLoading(true);
+    try {
+      await communityService.joinCommunityByCode(code);
+      setJoinCode("");
+      setJoinCodeSuccess("You joined the community successfully.");
+      fetchJoinedCommunities();
+      setTimeout(() => setJoinCodeSuccess(""), 4000);
+    } catch (err) {
+      setJoinCodeError(err.message || "Invalid or expired code. Please try again.");
+    } finally {
+      setJoinCodeLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
@@ -75,7 +103,33 @@ export default function JoinedCommunities({ onDiscoverClick }) {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-end gap-3">
+          {/* Join with code - inline on Communities page */}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a]">
+              <Key className="w-4 h-4 text-primary flex-shrink-0" />
+              <input
+                type="text"
+                value={joinCode}
+                onChange={(e) => {
+                  setJoinCode(e.target.value.toUpperCase().slice(0, 6));
+                  setJoinCodeError("");
+                }}
+                placeholder="Community code"
+                maxLength={6}
+                className="w-28 px-2 py-1.5 rounded bg-white dark:bg-[#121212] border border-gray-300 dark:border-gray-600 text-black dark:text-white text-sm placeholder-gray-500 focus:outline-none focus:border-primary"
+              />
+              <button
+                onClick={handleJoinByCode}
+                disabled={joinCodeLoading}
+                className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-60 transition whitespace-nowrap"
+              >
+                {joinCodeLoading ? "Joining…" : "Join"}
+              </button>
+            </div>
+            {joinCodeError && <p className="text-sm text-red-500">{joinCodeError}</p>}
+            {joinCodeSuccess && <p className="text-sm text-green-600 dark:text-green-400">{joinCodeSuccess}</p>}
+          </div>
           <button
             onClick={onDiscoverClick}
             className="px-4 py-2 rounded-lg border border-black dark:border-gray-700 bg-white dark:bg-[#161616] text-sm text-gray-700 dark:text-gray-300 hover:border-primary hover:text-black dark:hover:text-white transition-all duration-300"

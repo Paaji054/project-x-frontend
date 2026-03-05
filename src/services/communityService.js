@@ -10,28 +10,27 @@ export const communityService = {
    * @param {number} limit - Maximum number of communities to return
    * @param {string} category - Optional category filter
    */
-  async getPublicCommunities(limit = 20, category = null) {
+  async getPublicCommunities(limitOrOptions = 20, category = null) {
     try {
+      const limit = typeof limitOrOptions === 'object' && limitOrOptions !== null
+        ? (limitOrOptions.limit ?? 20)
+        : limitOrOptions;
+      const cat = typeof limitOrOptions === 'object' && limitOrOptions !== null
+        ? (limitOrOptions.category ?? category)
+        : category;
       const params = { limit };
-      if (category) {
-        params.category = category;
-      }
-      
+      if (cat) params.category = cat;
+      // Send auth when available so backend can set isJoined (optionalAuth on backend)
       const response = await api.get(API_ENDPOINTS.COMMUNITIES.PUBLIC, params);
+      // Backend returns { success, data: { communities } }
       if (response.success && response.data) {
-        // Handle nested structure: response.data.communities
-        if (Array.isArray(response.data.communities)) {
-          return response.data.communities;
-        }
-        // Handle direct array
-        if (Array.isArray(response.data)) {
-          return response.data;
-        }
+        const list = response.data.communities ?? response.data;
+        return Array.isArray(list) ? list : [];
       }
       return [];
     } catch (error) {
       console.error('Get public communities error:', error);
-      return []; // Return empty array instead of throwing
+      return [];
     }
   },
 
@@ -41,20 +40,15 @@ export const communityService = {
   async getUserCommunities(limit = 20) {
     try {
       const response = await api.get(API_ENDPOINTS.COMMUNITIES.USER_COMMUNITIES, { limit });
+      // Backend returns { success, data: { communities } }
       if (response.success && response.data) {
-        // Handle nested structure: response.data.communities
-        if (Array.isArray(response.data.communities)) {
-          return response.data.communities;
-        }
-        // Handle direct array
-        if (Array.isArray(response.data)) {
-          return response.data;
-        }
+        const list = response.data.communities ?? response.data;
+        return Array.isArray(list) ? list : [];
       }
       return [];
     } catch (error) {
       console.error('Get user communities error:', error);
-      return []; // Return empty array instead of throwing to prevent crashes
+      return [];
     }
   },
 
@@ -64,6 +58,7 @@ export const communityService = {
   async createCommunity(communityData) {
     try {
       const response = await api.post(API_ENDPOINTS.COMMUNITIES.CREATE, communityData);
+      // Backend returns { success, data: { community } }; return data so caller gets { community }
       return response.success ? response.data : null;
     } catch (error) {
       console.error('Create community error:', error);
@@ -77,9 +72,9 @@ export const communityService = {
   async getCommunityBySlug(slug) {
     try {
       const response = await api.get(API_ENDPOINTS.COMMUNITIES.BY_SLUG(slug));
-      // Backend returns { success: true, data: { community: {...} } }
+      // Backend returns { success, data: { community } }; community has _id, slug, code, isJoined (if auth)
       if (response.success && response.data) {
-        return response.data.community || response.data;
+        return response.data.community ?? response.data;
       }
       return null;
     } catch (error) {
@@ -94,7 +89,11 @@ export const communityService = {
   async getCommunityPosts(communityId, limit = 10, page = 1) {
     try {
       const response = await api.get(API_ENDPOINTS.COMMUNITIES.POSTS(communityId), { limit, page });
-      return response.success ? response.data : { posts: [], pagination: {} };
+      // Backend returns { success, data: { posts } }; normalize to always have posts + pagination
+      const data = response.success && response.data ? response.data : { posts: [] };
+      const posts = Array.isArray(data.posts) ? data.posts : [];
+      const pagination = data.pagination || {};
+      return { posts, pagination };
     } catch (error) {
       console.error('Get community posts error:', error);
       throw error;
@@ -145,7 +144,7 @@ export const communityService = {
    */
   async joinCommunityByCode(code) {
     try {
-      const response = await api.post('/api/communities/join-by-code', { code });
+      const response = await api.post(API_ENDPOINTS.COMMUNITIES.JOIN_BY_CODE, { code });
       return response;
     } catch (error) {
       console.error('Join community by code error:', error);
@@ -162,19 +161,6 @@ export const communityService = {
       return response;
     } catch (error) {
       console.error('Leave community error:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Delete community
-   */
-  async deleteCommunity(communityId) {
-    try {
-      const response = await api.delete(API_ENDPOINTS.COMMUNITIES.DELETE(communityId));
-      return response;
-    } catch (error) {
-      console.error('Delete community error:', error);
       throw error;
     }
   },

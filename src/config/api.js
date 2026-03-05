@@ -132,6 +132,7 @@ export const API_ENDPOINTS = {
     PUBLIC: '/api/communities/public',
     USER_COMMUNITIES: '/api/communities/user/communities',
     CREATE: '/api/communities',
+    JOIN_BY_CODE: '/api/communities/join-by-code',
     BY_SLUG: (slug) => `/api/communities/${slug}`,
     POSTS: (communityId) => `/api/communities/${communityId}/posts`,
     UPDATE: (communityId) => `/api/communities/${communityId}`,

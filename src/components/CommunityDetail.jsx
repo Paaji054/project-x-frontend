@@ -63,13 +63,14 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
           setPosts(postsData?.posts || []);
         }
 
-        // Initialize likes state
+        // Initialize likes state (backend sends isLiked, likesCount number, likes array)
         if (postsData?.posts) {
           const likes = {};
           postsData.posts.forEach(post => {
+            const count = typeof post.likesCount === 'number' ? post.likesCount : (Array.isArray(post.likes) ? post.likes.length : 0);
             likes[post.id] = {
-              liked: post.liked || post.isLiked || false,
-              count: post.likesCount || post.likes || 0
+              liked: post.liked ?? post.isLiked ?? false,
+              count
             };
           });
           setPostsLikes(likes);
@@ -378,13 +379,14 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
         const postsData = await communityService.getCommunityPosts(actualCommunityId);
         setPosts(postsData?.posts || []);
         
-        // Update likes state
+        // Update likes state (backend: isLiked, likesCount, likes array)
         if (postsData?.posts) {
           const likes = {};
           postsData.posts.forEach(post => {
+            const count = typeof post.likesCount === 'number' ? post.likesCount : (Array.isArray(post.likes) ? post.likes.length : 0);
             likes[post.id] = {
-              liked: post.liked || post.isLiked || false,
-              count: post.likesCount || post.likes || 0
+              liked: post.liked ?? post.isLiked ?? false,
+              count
             };
           });
           setPostsLikes(likes);
@@ -586,10 +588,14 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
                 </div>
                 <button
                   onClick={() => {
-                    const communityLink = `${window.location.origin}/community/${community.id}`;
-                    navigator.clipboard.writeText(communityLink);
-                    setCopiedLink(true);
-                    setTimeout(() => setCopiedLink(false), 2000);
+                    const id = community._id || community.id;
+                    const communityLink = `${window.location.origin}/communities/${id}`;
+                    navigator.clipboard.writeText(communityLink).then(() => {
+                      setCopiedLink(true);
+                      setTimeout(() => setCopiedLink(false), 2000);
+                    }).catch(() => {
+                      window.prompt('Copy this link to share:', communityLink);
+                    });
                   }}
                   className="w-full px-3 sm:px-4 py-2 bg-transparent border border-primary text-primary rounded-lg hover:bg-primary/10 transition flex items-center justify-center gap-2 text-xs sm:text-sm"
                 >
@@ -657,7 +663,8 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
           {/* Main Content - Posts */}
           <main className="lg:col-span-2 space-y-4 sm:space-y-6">
             {posts.map((post) => {
-              const postLikeData = postsLikes[post.id] || { liked: false, count: post.likes || 0 };
+              const postLikeCount = typeof post.likesCount === 'number' ? post.likesCount : (Array.isArray(post.likes) ? post.likes.length : 0);
+              const postLikeData = postsLikes[post.id] || { liked: post.isLiked ?? false, count: postLikeCount };
               return (
                 <div
                   key={post.id}
