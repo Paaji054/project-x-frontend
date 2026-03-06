@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, Send, Edit, X, Search, Loader2 } from "lucide-react";
 import LiveProfilePhoto from "../../components/LiveProfilePhoto";
 import { getProfileVideoUrl } from "../../utils/profileVideos";
 import themeIcon from "../../assets/theme.svg";
@@ -8,6 +8,7 @@ import xoxoTheme from "../../assets/xoxo_theme.jpg";
 import { messageService, userService, socketService } from "../../services";
 import { useAuth } from "../../context/AuthContext";
 import { tokenManager } from "../../utils/httpClient";
+import { useDebounce } from "../../hooks/useDebounce";
 
 export default function MessagesPage({ onViewUserProfile, selectedChatUsername }) {
   const { user } = useAuth(); // Get current user to identify message sender
@@ -15,6 +16,13 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
   const [activeChat, setActiveChat] = useState(null);
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState([]);
+
+  // Compose ("New Message") modal state
+  const [showCompose, setShowCompose] = useState(false);
+  const [composeSearch, setComposeSearch] = useState("");
+  const [composeResults, setComposeResults] = useState([]);
+  const [composeLoading, setComposeLoading] = useState(false);
+  const debouncedComposeSearch = useDebounce(composeSearch, 400);
   const [chatThemes, setChatThemes] = useState(() => {
     // Load chat themes from localStorage
     try {
@@ -136,7 +144,28 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
       receiverBubble: "bg-red-900/80 text-white",
     },
   };
-
+  // Search users for compose modal
+  useEffect(() => {
+    if (!debouncedComposeSearch.trim()) {
+      setComposeResults([]);
+      return;
+    }
+    let cancelled = false;
+    const search = async () => {
+      setComposeLoading(true);
+      try {
+        const result = await userService.searchUsers(debouncedComposeSearch, 15);
+        const users = result?.users || result || [];
+        if (!cancelled) setComposeResults(Array.isArray(users) ? users : []);
+      } catch {
+        if (!cancelled) setComposeResults([]);
+      } finally {
+        if (!cancelled) setComposeLoading(false);
+      }
+    };
+    search();
+    return () => { cancelled = true; };
+  }, [debouncedComposeSearch]);
   // Fetch conversations on mount
   useEffect(() => {
     console.log('MessagesPage mounted, fetching conversations...');
@@ -432,7 +461,16 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
         {/* Left Side - Chat List */}
         <div className={`${activeChat ? 'hidden md:block' : 'block'} w-full md:w-96 border-r border-black dark:border-gray-800 overflow-y-auto bg-[#fffcfa] dark:bg-black`}>
           <div className="p-4 md:p-6">
-            <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Messages</h1>
+            <div className="flex items-center justify-between mb-4 md:mb-6">
+              <h1 className="text-xl md:text-2xl font-bold">Messages</h1>
+              <button
+                onClick={() => { setShowCompose(true); setComposeSearch(""); setComposeResults([]); }}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                title="New message"
+              >
+                <Edit className="w-5 h-5 text-black dark:text-white" />
+              </button>
+            </div>
 
             {/* Loading State */}
             {loadingConversations && (
@@ -568,8 +606,8 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
                   <div className="relative flex-shrink-0">
                     <div className="w-12 h-12 md:w-14 md:h-14 rounded-full overflow-hidden">
                       <LiveProfilePhoto
-                        imageSrc={otherUser.profilePicture || "https://i.pravatar.cc/100"}
-                        videoSrc={getProfileVideoUrl(otherUser.profilePicture, otherUser.username)}
+                        imageSrc={otherUser.avatar || otherUser.profilePhoto || "https://i.pravatar.cc/100"}
+                        videoSrc={getProfileVideoUrl(otherUser.avatar || otherUser.profilePhoto, otherUser.username)}
                         alt={otherUser.username || "User"}
                         className="w-12 h-12 md:w-14 md:h-14 rounded-full"
                     />
@@ -620,8 +658,8 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
                 </button>
                 <div className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden flex-shrink-0">
                   <LiveProfilePhoto
-                    imageSrc={activeChat.otherUser?.profilePicture || "https://i.pravatar.cc/100"}
-                    videoSrc={getProfileVideoUrl(activeChat.otherUser?.profilePicture, activeChat.otherUser?.username)}
+                    imageSrc={activeChat.otherUser?.avatar || activeChat.otherUser?.profilePhoto || "https://i.pravatar.cc/100"}
+                    videoSrc={getProfileVideoUrl(activeChat.otherUser?.avatar || activeChat.otherUser?.profilePhoto, activeChat.otherUser?.username)}
                     alt={activeChat.otherUser?.username || "User"}
                     className="w-10 h-10 md:w-12 md:h-12 rounded-full"
                   />
@@ -751,10 +789,87 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
           <div className="hidden md:flex flex-1 items-center justify-center bg-[#fffcfa] dark:bg-black">
             <div className="text-center text-gray-500">
               <p className="text-lg">Select a chat to start messaging</p>
+              <button
+                onClick={() => { setShowCompose(true); setComposeSearch(""); setComposeResults([]); }}
+                className="mt-4 px-5 py-2 bg-primary text-white rounded-full text-sm font-medium hover:bg-primary-700 transition"
+              >
+                New message
+              </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* Compose / New Message Modal */}
+      {showCompose && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-md mx-4 flex flex-col overflow-hidden max-h-[80vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-base font-bold text-black dark:text-white">New message</h2>
+              <button
+                onClick={() => { setShowCompose(false); setComposeSearch(""); setComposeResults([]); }}
+                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+              >
+                <X className="w-5 h-5 text-black dark:text-white" />
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3 bg-gray-100 dark:bg-[#2f2f2f] rounded-xl px-4 py-2">
+                <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Search people..."
+                  value={composeSearch}
+                  onChange={(e) => setComposeSearch(e.target.value)}
+                  className="flex-1 bg-transparent outline-none text-sm text-black dark:text-white placeholder-gray-400"
+                />
+                {composeLoading && <Loader2 className="w-4 h-4 text-gray-400 animate-spin flex-shrink-0" />}
+              </div>
+            </div>
+
+            {/* Results */}
+            <div className="flex-1 overflow-y-auto py-2">
+              {!composeSearch.trim() && (
+                <p className="text-sm text-gray-400 text-center py-8 px-5">
+                  Search for someone to message
+                </p>
+              )}
+              {composeSearch.trim() && !composeLoading && composeResults.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-8 px-5">No users found</p>
+              )}
+              {composeResults.map((u) => (
+                <button
+                  key={u.uid || u.id || u._id}
+                  onClick={async () => {
+                    setShowCompose(false);
+                    setComposeSearch("");
+                    setComposeResults([]);
+                    await createNewConversation(u.username);
+                  }}
+                  className="w-full flex items-center gap-3 px-5 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition text-left"
+                >
+                  <div className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0">
+                    <LiveProfilePhoto
+                      imageSrc={u.profilePhoto || u.avatar || "https://i.pravatar.cc/100"}
+                      videoSrc={getProfileVideoUrl(u.profilePhoto || u.avatar, u.username)}
+                      alt={u.username}
+                      className="w-11 h-11 rounded-full"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm text-black dark:text-white truncate">{u.username}</p>
+                    {u.displayName && <p className="text-xs text-gray-400 truncate">{u.displayName}</p>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -70,7 +70,7 @@ axiosInstance.interceptors.response.use(
           }
 
           // Update expiry
-          const expiryTime = Date.now() + (2 * 60 * 60 * 1000);
+          const expiryTime = Date.now() + (55 * 60 * 1000);
           localStorage.setItem('tokenExpiry', expiryTime.toString());
 
           // Retry original request

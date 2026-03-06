@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ChevronDown, ChevronUp, MapPin, UserPlus, Smile, X, Music, Type, Filter, Edit3, Crop, Sun, Contrast, Droplet, Thermometer, Circle } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, MapPin, UserPlus, Smile, X, Music, Type, Filter, Edit3, Crop, Sun, Contrast, Droplet, Thermometer, Circle, Navigation, Loader2, Check } from "lucide-react";
 import EmojiPickerReact from 'emoji-picker-react';
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useAuth } from "../context/AuthContext";
@@ -8,6 +8,7 @@ import uploadIcon from "../assets/upload.svg";
 import { uploadService } from "../services/uploadService";
 import { postService } from "../services/postService";
 import { userService } from "../services/userService";
+import { useDebounce } from "../hooks/useDebounce";
 
 export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreated, communityId }) {
   const [step, setStep] = useState("upload"); // "upload", "crop", "edit", "final"
@@ -71,6 +72,18 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
   // Following users for tagging
   const [followingUsers, setFollowingUsers] = useState([]);
   const [loadingFollowing, setLoadingFollowing] = useState(false);
+
+  // Location search state
+  const [locationResults, setLocationResults] = useState([]);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [detectingLocation, setDetectingLocation] = useState(false);
+
+  // Tag people — all-user search
+  const [userSearchResults, setUserSearchResults] = useState([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
+
+  const debouncedLocationSearch = useDebounce(locationSearch, 500);
+  const debouncedTagSearch = useDebounce(tagSearch, 400);
 
   const fileInputRef = useRef(null);
   const cropContainerRef = useRef(null);
@@ -702,6 +715,85 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showEmojiPicker]);
+
+  // Detect GPS location and reverse-geocode via Nominatim
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) return;
+    setDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const resp = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`,
+            { headers: { 'Accept-Language': 'en' } }
+          );
+          const data = await resp.json();
+          const parts = data.display_name?.split(',') || [];
+          const name = parts.slice(0, 3).join(',').trim() || 'Current Location';
+          setLocation(name);
+          setShowLocationModal(false);
+          setLocationSearch('');
+          setLocationResults([]);
+        } catch {
+          setLocation('Current Location');
+          setShowLocationModal(false);
+        } finally {
+          setDetectingLocation(false);
+        }
+      },
+      () => setDetectingLocation(false),
+      { timeout: 10000 }
+    );
+  };
+
+  // Search locations via Nominatim when search text changes
+  useEffect(() => {
+    if (!debouncedLocationSearch.trim()) {
+      setLocationResults([]);
+      return;
+    }
+    let cancelled = false;
+    const fetchLocations = async () => {
+      setLocationLoading(true);
+      try {
+        const resp = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(debouncedLocationSearch)}&format=json&limit=8&addressdetails=1`,
+          { headers: { 'Accept-Language': 'en' } }
+        );
+        const data = await resp.json();
+        if (!cancelled) setLocationResults(Array.isArray(data) ? data : []);
+      } catch {
+        if (!cancelled) setLocationResults([]);
+      } finally {
+        if (!cancelled) setLocationLoading(false);
+      }
+    };
+    fetchLocations();
+    return () => { cancelled = true; };
+  }, [debouncedLocationSearch]);
+
+  // Search all users when tag search text changes
+  useEffect(() => {
+    if (!debouncedTagSearch.trim()) {
+      setUserSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    const searchAllUsers = async () => {
+      setSearchingUsers(true);
+      try {
+        const result = await userService.searchUsers(debouncedTagSearch, 15);
+        const users = result?.users || result || [];
+        if (!cancelled) setUserSearchResults(Array.isArray(users) ? users : []);
+      } catch {
+        if (!cancelled) setUserSearchResults([]);
+      } finally {
+        if (!cancelled) setSearchingUsers(false);
+      }
+    };
+    searchAllUsers();
+    return () => { cancelled = true; };
+  }, [debouncedTagSearch]);
 
   // Calculate filter and adjustment styles with accurate adjustments
   const getImageStyle = () => {
@@ -1752,61 +1844,72 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                       </div>
                     )}
                     
-                    {/* Following Users List */}
-                    {loadingFollowing ? (
-                      <div className="text-center py-4 text-gray-400">Loading...</div>
+                    {/* Search results when typing, otherwise show following */}
+                    {loadingFollowing || searchingUsers ? (
+                      <div className="flex items-center justify-center py-6 gap-2 text-gray-400">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-sm">Searching...</span>
+                      </div>
                     ) : (
-                      <div className="space-y-2">
-                        <p className="text-sm font-semibold text-white mb-2">Following:</p>
-                        {followingUsers
-                          .filter(user => {
-                            const searchLower = tagSearch.toLowerCase();
-                            const username = user.username?.toLowerCase() || '';
-                            const displayName = user.displayName?.toLowerCase() || '';
-                            return username.includes(searchLower) || displayName.includes(searchLower);
-                          })
-                          .map((user, index) => {
-                            const isTagged = taggedPeople.some(t => 
-                              (typeof t === 'object' && t.username === user.username) || 
-                              (typeof t === 'string' && t === user.username)
-                            );
+                      <div className="space-y-1">
+                        {(() => {
+                          const listToShow = tagSearch.trim()
+                            ? userSearchResults
+                            : followingUsers.filter(u => {
+                                const s = tagSearch.toLowerCase();
+                                return !s || (u.username?.toLowerCase().includes(s) || u.displayName?.toLowerCase().includes(s));
+                              });
+                          const sectionLabel = tagSearch.trim() ? 'Search results' : 'Following';
+                          if (listToShow.length === 0) {
                             return (
-                              <button
-                                key={user.uid || user.id || index}
-                                onClick={() => {
-                                  if (!isTagged) {
-                                    setTaggedPeople([...taggedPeople, user]);
-                                  }
-                                }}
-                                disabled={isTagged}
-                                className={`w-full flex items-center justify-between p-2 rounded hover:bg-[#2a2a2a] transition-colors ${
-                                  isTagged ? 'opacity-50 cursor-not-allowed' : ''
-                                }`}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <img 
-                                    src={user.profilePhoto || user.avatar || '/default-avatar.png'} 
-                                    alt={user.username}
-                                    className="w-8 h-8 rounded-full object-cover"
-                                  />
-                                  <div className="text-left">
-                                    <p className="text-sm text-white">{user.username}</p>
-                                    {user.displayName && (
-                                      <p className="text-xs text-gray-400">{user.displayName}</p>
-                                    )}
-                                  </div>
-                                </div>
-                                {isTagged && (
-                                  <span className="text-xs text-gray-400">Tagged</span>
-                                )}
-                              </button>
+                              <p className="text-sm text-gray-400 text-center py-6">
+                                {tagSearch.trim() ? 'No users found' : 'No following users found'}
+                              </p>
                             );
-                          })}
-                        {followingUsers.length === 0 && (
-                          <p className="text-sm text-gray-400 text-center py-4">
-                            No following users found
-                          </p>
-                        )}
+                          }
+                          return (
+                            <>
+                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">{sectionLabel}</p>
+                              {listToShow.map((u, index) => {
+                                const isTagged = taggedPeople.some(t =>
+                                  (typeof t === 'object' && t.username === u.username) ||
+                                  (typeof t === 'string' && t === u.username)
+                                );
+                                return (
+                                  <button
+                                    key={u.uid || u.id || index}
+                                    onClick={() => {
+                                      if (isTagged) {
+                                        setTaggedPeople(taggedPeople.filter(t =>
+                                          (typeof t === 'object' ? t.username !== u.username : t !== u.username)
+                                        ));
+                                      } else {
+                                        setTaggedPeople([...taggedPeople, u]);
+                                      }
+                                    }}
+                                    className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-[#2a2a2a] transition-colors"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <img
+                                        src={u.profilePhoto || u.avatar || 'https://i.pravatar.cc/40'}
+                                        alt={u.username}
+                                        className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                                        onError={(e) => { e.target.src = 'https://i.pravatar.cc/40'; }}
+                                      />
+                                      <div className="text-left">
+                                        <p className="text-sm font-medium text-white">{u.username}</p>
+                                        {u.displayName && <p className="text-xs text-gray-400">{u.displayName}</p>}
+                                      </div>
+                                    </div>
+                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isTagged ? 'bg-blue-500 border-blue-500' : 'border-gray-600'}`}>
+                                      {isTagged && <Check className="w-3 h-3 text-white" />}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -1824,13 +1927,14 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                   onClick={() => {
                     setShowLocationModal(false);
                     setLocationSearch("");
+                    setLocationResults([]);
                   }}
                 />
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
-                  className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-2xl z-[111] w-96 max-h-[400px] flex flex-col"
+                  className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-2xl z-[111] w-96 max-h-[480px] flex flex-col"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
@@ -1839,6 +1943,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                       onClick={() => {
                         setShowLocationModal(false);
                         setLocationSearch("");
+                        setLocationResults([]);
                       }}
                       className="text-gray-400 hover:text-white"
                     >
@@ -1846,38 +1951,92 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                     </button>
                   </div>
                   <div className="flex-1 overflow-y-auto p-4">
-                    <input
-                      type="text"
-                      placeholder="Search for a location..."
-                      value={locationSearch}
-                      onChange={(e) => setLocationSearch(e.target.value)}
-                      className="w-full px-4 py-2 bg-[#0f0f0f] border border-gray-700 rounded-lg mb-4 outline-none focus:border-blue-500 text-white placeholder-gray-500"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          if (locationSearch.trim()) {
-                            setLocation(locationSearch.trim());
-                          }
-                          setShowLocationModal(false);
-                          setLocationSearch("");
-                        }}
-                        className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                      >
-                        Done
-                      </button>
-                      {location && (
-                        <button
-                          onClick={() => {
-                            setLocation("");
-                            setLocationSearch("");
-                          }}
-                          className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors"
-                        >
-                          Remove
-                        </button>
+                    {/* GPS detect button */}
+                    <button
+                      onClick={handleDetectLocation}
+                      disabled={detectingLocation}
+                      className="w-full flex items-center gap-3 px-4 py-3 mb-3 rounded-lg border border-gray-700 hover:border-blue-500 hover:bg-blue-500/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {detectingLocation
+                        ? <Loader2 className="w-5 h-5 text-blue-400 animate-spin flex-shrink-0" />
+                        : <Navigation className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                      }
+                      <span className="text-sm text-white font-medium">
+                        {detectingLocation ? 'Detecting location...' : 'Use current location'}
+                      </span>
+                    </button>
+
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="flex-1 h-px bg-gray-700" />
+                      <span className="text-xs text-gray-500">or search</span>
+                      <div className="flex-1 h-px bg-gray-700" />
+                    </div>
+
+                    {/* Search input */}
+                    <div className="relative mb-3">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                      <input
+                        type="text"
+                        placeholder="Search for a place..."
+                        value={locationSearch}
+                        onChange={(e) => setLocationSearch(e.target.value)}
+                        autoFocus
+                        className="w-full pl-9 pr-4 py-2 bg-[#0f0f0f] border border-gray-700 rounded-lg outline-none focus:border-blue-500 text-white placeholder-gray-500 text-sm"
+                      />
+                      {locationLoading && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 animate-spin" />
                       )}
                     </div>
+
+                    {/* Current selected location */}
+                    {location && (
+                      <div className="flex items-center justify-between p-2 rounded-lg bg-blue-500/10 border border-blue-500/30 mb-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <MapPin className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                          <span className="text-sm text-blue-300 truncate">{location}</span>
+                        </div>
+                        <button
+                          onClick={() => setLocation("")}
+                          className="text-gray-500 hover:text-red-400 ml-2 flex-shrink-0"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Results list */}
+                    {locationResults.length > 0 && (
+                      <div className="space-y-1">
+                        {locationResults.map((result) => {
+                          const parts = result.display_name?.split(',') || [];
+                          const primary = parts[0]?.trim() || result.display_name;
+                          const secondary = parts.slice(1, 3).join(',').trim();
+                          return (
+                            <button
+                              key={result.place_id}
+                              onClick={() => {
+                                setLocation(`${primary}${secondary ? `, ${secondary}` : ''}`);
+                                setShowLocationModal(false);
+                                setLocationSearch('');
+                                setLocationResults([]);
+                              }}
+                              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#2a2a2a] transition-colors text-left"
+                            >
+                              <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-sm text-white font-medium truncate">{primary}</p>
+                                {secondary && <p className="text-xs text-gray-400 truncate">{secondary}</p>}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Empty search state */}
+                    {locationSearch.trim() && !locationLoading && locationResults.length === 0 && (
+                      <p className="text-sm text-gray-400 text-center py-4">No locations found</p>
+                    )}
                   </div>
                 </motion.div>
               </>

@@ -157,6 +157,7 @@ class HTTPClient {
       const response = await fetch(this.buildURL('/api/auth/refresh'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ refreshToken }),
       });
 
