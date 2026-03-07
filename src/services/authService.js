@@ -23,8 +23,8 @@ export const authService = {
         // Store user data
         localStorage.setItem('user', JSON.stringify(user));
         
-        // Set token expiry (2 hours from now)
-        const expiryTime = Date.now() + (2 * 60 * 60 * 1000);
+        // Set token expiry (55 min from now, slightly under the 1h JWT expiry)
+        const expiryTime = Date.now() + (55 * 60 * 1000);
         localStorage.setItem('tokenExpiry', expiryTime.toString());
         localStorage.setItem('authToken', accessToken);
         
@@ -55,8 +55,8 @@ export const authService = {
         // Store user data
         localStorage.setItem('user', JSON.stringify(user));
         
-        // Set token expiry (2 hours from now)
-        const expiryTime = Date.now() + (2 * 60 * 60 * 1000);
+        // Set token expiry (55 min from now, slightly under the 1h JWT expiry)
+        const expiryTime = Date.now() + (55 * 60 * 1000);
         localStorage.setItem('tokenExpiry', expiryTime.toString());
         localStorage.setItem('authToken', accessToken);
         
@@ -137,8 +137,8 @@ export const authService = {
         if (newRefreshToken) {
           tokenManager.setRefreshToken(newRefreshToken);
         }
-        // Set token expiry (24 hours from now)
-        const expiryTime = Date.now() + (24 * 60 * 60 * 1000);
+        // Set token expiry (55 min from now, matching 1h JWT expiry)
+        const expiryTime = Date.now() + (55 * 60 * 1000);
         localStorage.setItem('tokenExpiry', expiryTime.toString());
         return { success: true, accessToken };
       }

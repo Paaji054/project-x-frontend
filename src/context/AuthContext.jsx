@@ -40,16 +40,9 @@ export const AuthProvider = ({ children }) => {
             }
           } catch (error) {
             console.error('Get current user error:', error);
-            // If API call fails, use stored user data
-            const storedUser = authService.getStoredUser();
-            if (storedUser) {
-              setUser(storedUser);
-              setIsAuthenticated(true);
-            } else {
-              // Clear invalid session
-              await authService.logout();
-              setIsAuthenticated(false);
-            }
+            // Clear invalid/expired session so user can log in fresh
+            await authService.logout();
+            setIsAuthenticated(false);
           }
         } else {
           setIsAuthenticated(false);
