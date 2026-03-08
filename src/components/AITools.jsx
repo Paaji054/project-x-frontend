@@ -11,6 +11,8 @@ const AITools = () => {
   
   // Form states
   const [imagePrompt, setImagePrompt] = useState('');
+  const [imageStyle, setImageStyle] = useState('realistic');
+  const [imageRatio, setImageRatio] = useState('1:1');
   const [captionImageUrl, setCaptionImageUrl] = useState('');
   const [captionContext, setCaptionContext] = useState('');
   const [bioDescription, setBioDescription] = useState('');
@@ -37,15 +39,18 @@ const AITools = () => {
   };
 
   const handleGenerateImage = async () => {
-    if (!imagePrompt) return;
-    
+    if (!imagePrompt.trim()) return;
     try {
       setLoading(true);
-      const data = await aiService.generateImage(imagePrompt);
+      setResult(null);
+      const data = await aiService.generateImage(imagePrompt.trim(), {
+        style: imageStyle,
+        ratio: imageRatio,
+      });
       setResult({ type: 'image', data });
-      await loadInitialData(); // Refresh credits
+      await loadInitialData();
     } catch (err) {
-      alert('Failed to generate image: ' + err.message);
+      alert('Failed to generate image: ' + (err.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -190,12 +195,40 @@ const AITools = () => {
                     placeholder="Describe the image you want to generate..."
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Style</label>
+                    <select
+                      value={imageStyle}
+                      onChange={(e) => setImageStyle(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="realistic">Realistic</option>
+                      <option value="art">Art</option>
+                      <option value="anime">Anime</option>
+                      <option value="3d">3D</option>
+                      <option value="abstract">Abstract</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ratio</label>
+                    <select
+                      value={imageRatio}
+                      onChange={(e) => setImageRatio(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="1:1">1:1</option>
+                      <option value="4:5">4:5</option>
+                      <option value="16:9">16:9</option>
+                    </select>
+                  </div>
+                </div>
                 <button
                   onClick={handleGenerateImage}
-                  disabled={loading || !imagePrompt}
+                  disabled={loading || !imagePrompt.trim()}
                   className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {loading ? 'Generating...' : `Generate (${creditCosts.generateImage || 0} credits)`}
+                  {loading ? 'Generating...' : `Generate (${creditCosts.generateImage ?? 0} credits)`}
                 </button>
               </div>
             )}
@@ -365,17 +398,24 @@ const AITools = () => {
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Result</h2>
             {result ? (
               <div className="space-y-4">
-                {(result.type === 'image' || result.type === 'avatar' || result.type === 'communityIcon') && result.data?.url && (
-                  <img
-                    src={result.data.url}
-                    alt="Generated"
-                    className="w-full rounded-lg"
-                  />
+                {(result.type === 'image' || result.type === 'avatar' || result.type === 'communityIcon') && (result.data?.imageUrl || result.data?.avatarUrl || result.data?.iconUrl || result.data?.url) && (
+                  <div className="space-y-2">
+                    <img
+                      src={result.data.imageUrl || result.data.avatarUrl || result.data.iconUrl || result.data.url}
+                      alt="Generated"
+                      className="w-full rounded-lg max-h-[480px] object-contain bg-gray-100 dark:bg-gray-700"
+                    />
+                    {(result.data.creditsUsed != null || result.data.remainingCredits != null) && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Used {result.data.creditsUsed ?? 0} credits · {result.data.remainingCredits ?? 0} remaining
+                      </p>
+                    )}
+                  </div>
                 )}
-                {(result.type === 'caption' || result.type === 'bio') && result.data?.text && (
+                {(result.type === 'caption' || result.type === 'bio') && (result.data?.caption ?? result.data?.bio ?? result.data?.text) && (
                   <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
-                      {result.data.text}
+                      {result.data.caption ?? result.data.bio ?? result.data.text}
                     </p>
                   </div>
                 )}

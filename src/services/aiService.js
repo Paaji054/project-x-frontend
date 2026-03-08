@@ -11,7 +11,17 @@ export const aiService = {
   async getCreditCosts() {
     try {
       const response = await api.get(API_ENDPOINTS.AI.CREDIT_COSTS);
-      return response.success ? response.data : {};
+      if (!response.success || !response.data) return {};
+      const costs = response.data.costs || response.data;
+      return {
+        ...costs,
+        generateImage: costs.generateImage ?? costs.AI_IMAGE,
+        generateCaption: costs.generateCaption ?? costs.AI_CAPTION,
+        generateBio: costs.generateBio ?? costs.AI_BIO,
+        generateTheme: costs.generateTheme ?? costs.AI_THEME,
+        generateAvatar: costs.generateAvatar ?? costs.AI_AVATAR,
+        generateCommunityIcon: costs.generateCommunityIcon ?? costs.AI_COMMUNITY_ICON,
+      };
     } catch (error) {
       console.error('Get credit costs error:', error);
       throw error;
@@ -24,7 +34,9 @@ export const aiService = {
   async generateImage(prompt, options = {}) {
     try {
       const response = await api.post(API_ENDPOINTS.AI.GENERATE_IMAGE, { prompt, ...options });
-      return response.success ? response.data : null;
+      if (!response.success || !response.data) return null;
+      const data = response.data;
+      return { url: data.imageUrl, ...data };
     } catch (error) {
       console.error('Generate image error:', error);
       throw error;
@@ -88,7 +100,10 @@ export const aiService = {
    */
   async generateCommunityIcon(name, description) {
     try {
-      const response = await api.post(API_ENDPOINTS.AI.GENERATE_COMMUNITY_ICON, { name, description });
+      const response = await api.post(API_ENDPOINTS.AI.GENERATE_COMMUNITY_ICON, {
+        communityName: name,
+        description: (description && description.trim()) ? description.trim() : 'Community',
+      });
       return response.success ? response.data : null;
     } catch (error) {
       console.error('Generate community icon error:', error);
