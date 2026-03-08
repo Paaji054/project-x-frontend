@@ -382,10 +382,42 @@ const fetchProfileData = async () => {
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.22, duration: 0.5 }}
-                className="text-gray-600 dark:text-gray-400 mb-6 text-xs md:text-sm"
+                className="text-gray-600 dark:text-gray-400 mb-3 text-xs md:text-sm"
               >
                 {profileData?.gender || profile?.gender}
               </motion.p>
+            )}
+
+            {/* Website & Links */}
+            {((profileData?.website || profile?.website) || ((profileData?.links || profile?.links)?.length > 0)) && (
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.23, duration: 0.5 }}
+                className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mb-6"
+              >
+                {(profileData?.website || profile?.website) && (
+                  <a
+                    href={(profileData?.website || profile?.website).startsWith('http') ? (profileData?.website || profile?.website) : `https://${profileData?.website || profile?.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs md:text-sm text-primary hover:underline break-all"
+                  >
+                    {(profileData?.website || profile?.website).replace(/^https?:\/\//, '')}
+                  </a>
+                )}
+                {(profileData?.links || profile?.links || []).filter(l => l).map((link, i) => (
+                  <a
+                    key={i}
+                    href={link.startsWith('http') ? link : `https://${link}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs md:text-sm text-primary hover:underline break-all"
+                  >
+                    {link.replace(/^https?:\/\//, '')}
+                  </a>
+                ))}
+              </motion.div>
             )}
 
             {/* Stats */}

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, X, MoreVertical, Trash2 } from "lucide-react";
+import { Heart, X, MoreVertical, Trash2, Flag, Pin, Reply, ChevronDown, ChevronUp } from "lucide-react";
 import ShareModal from "./ShareModal";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
+import ReportModal from "./ReportModal";
 import commentIcon from "../assets/comment.svg";
 import messageIcon from "../assets/message.svg";
 import LiveProfilePhoto from "./LiveProfilePhoto";
@@ -25,6 +26,11 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
   const [isDeletingPost, setIsDeletingPost] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingCommentId, setDeletingCommentId] = useState(null);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportTarget, setReportTarget] = useState({ type: '', id: '' });
+  const [expandedReplies, setExpandedReplies] = useState({});
+  const [repliesMap, setRepliesMap] = useState({});
   
   // Get current logged-in user data (for new comment display)
   const { profilePhoto: currentUserPhoto, profileVideo: currentUserVideo, username: currentUsername } = useUserProfile();
@@ -162,12 +168,14 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
     
     const commentText = newComment.trim();
     setNewComment("");
+    const parentId = replyingTo?.id || null;
+    setReplyingTo(null);
     
     try {
-      // Call API to save comment (backend expects { text } and returns { comment } with userId, text, _id)
-      const response = await postService.addComment(postId, { text: commentText });
+      const body = { text: commentText };
+      if (parentId) body.parentId = parentId;
+      const response = await postService.addComment(postId, body);
       
-      // Add the new comment: backend returns { comment: { _id, userId, text, ... } }; enrich for display
       const raw = response?.comment ?? response?.data ?? response;
       if (raw && (raw._id || raw.id)) {
         const newCommentObj = {
@@ -179,19 +187,70 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
             profilePhoto: currentUserPhoto,
           },
         };
-        setComments(prev => [...prev, newCommentObj]);
+        if (parentId) {
+          setRepliesMap(prev => ({
+            ...prev,
+            [parentId]: [...(prev[parentId] || []), newCommentObj],
+          }));
+          setExpandedReplies(prev => ({ ...prev, [parentId]: true }));
+        } else {
+          setComments(prev => [...prev, newCommentObj]);
+        }
       } else {
         fetchComments();
       }
     } catch (error) {
       console.error('Error adding comment:', error);
-      setNewComment(commentText); // Restore comment text on error
+      setNewComment(commentText);
       alert('Failed to add comment. Please try again.');
     }
   };
 
   const handleShareClick = () => {
     setIsShareModalOpen(true);
+  };
+
+  const handlePinComment = async (commentId) => {
+    if (!postId) return;
+    try {
+      const comment = comments.find(c => (c._id || c.id) === commentId);
+      if (comment?.isPinned) {
+        await postService.unpinComment(postId, commentId);
+      } else {
+        await postService.pinComment(postId, commentId);
+      }
+      setCommentMenuOpenId(null);
+      fetchComments();
+    } catch (error) {
+      console.error('Error pinning comment:', error);
+    }
+  };
+
+  const handleReportPost = () => {
+    setPostMenuOpen(false);
+    setReportTarget({ type: 'post', id: String(postId) });
+    setShowReportModal(true);
+  };
+
+  const handleReportComment = (commentId) => {
+    setCommentMenuOpenId(null);
+    setReportTarget({ type: 'comment', id: String(commentId) });
+    setShowReportModal(true);
+  };
+
+  const toggleReplies = async (commentId) => {
+    const isExpanded = expandedReplies[commentId];
+    if (isExpanded) {
+      setExpandedReplies(prev => ({ ...prev, [commentId]: false }));
+      return;
+    }
+    try {
+      const response = await postService.getCommentReplies(postId, commentId);
+      setRepliesMap(prev => ({ ...prev, [commentId]: response.replies || [] }));
+      setExpandedReplies(prev => ({ ...prev, [commentId]: true }));
+    } catch (error) {
+      console.error('Error loading replies:', error);
+    }
   };
 
   const handleDeletePost = async () => {
@@ -256,26 +315,26 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
               className="w-full h-full md:h-[90vh] md:max-w-7xl bg-white dark:bg-[#0f0f0f] md:rounded-2xl overflow-hidden pointer-events-auto flex flex-col md:grid md:grid-cols-2 gap-0"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Top-right: post menu (owner) + close */}
+              {/* Top-right: post menu + close */}
               <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-                {isOwnPost && (
-                  <div className="relative">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setPostMenuOpen((prev) => !prev); }}
-                      className="w-8 h-8 rounded-full bg-black/80 hover:bg-black dark:bg-black/80 dark:hover:bg-black flex items-center justify-center transition-colors"
-                      aria-label="Post options"
-                    >
-                      <MoreVertical className="w-5 h-5 text-white" />
-                    </button>
-                    {postMenuOpen && (
-                      <>
-                        <div className="fixed inset-0 z-20" onClick={() => setPostMenuOpen(false)} aria-hidden="true" />
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          className="absolute right-0 top-10 z-30 min-w-[160px] rounded-xl bg-gray-900 dark:bg-gray-800 border border-gray-700 shadow-xl py-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
+                <div className="relative">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setPostMenuOpen((prev) => !prev); }}
+                    className="w-8 h-8 rounded-full bg-black/80 hover:bg-black dark:bg-black/80 dark:hover:bg-black flex items-center justify-center transition-colors"
+                    aria-label="Post options"
+                  >
+                    <MoreVertical className="w-5 h-5 text-white" />
+                  </button>
+                  {postMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-20" onClick={() => setPostMenuOpen(false)} aria-hidden="true" />
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="absolute right-0 top-10 z-30 min-w-[160px] rounded-xl bg-gray-900 dark:bg-gray-800 border border-gray-700 shadow-xl py-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {isOwnPost && (
                           <button
                             onClick={() => {
                               setPostMenuOpen(false);
@@ -286,11 +345,20 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                             <Trash2 className="w-4 h-4" />
                             Delete post
                           </button>
-                        </motion.div>
-                      </>
-                    )}
-                  </div>
-                )}
+                        )}
+                        {!isOwnPost && (
+                          <button
+                            onClick={handleReportPost}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-left text-orange-400 hover:bg-gray-800 transition"
+                          >
+                            <Flag className="w-4 h-4" />
+                            Report post
+                          </button>
+                        )}
+                      </motion.div>
+                    </>
+                  )}
+                </div>
                 <button
                   onClick={onClose}
                   className="w-8 h-8 rounded-full bg-black/80 hover:bg-black dark:bg-black/80 dark:hover:bg-black flex items-center justify-center transition-colors"
@@ -412,11 +480,14 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                         const commentContent = comment.content || comment.text;
                         const commentUsername = comment.user?.username || comment.username || comment.author?.username || comment.user?.displayName || comment.author?.displayName || 'User';
                         const commentAuthorId = comment.userId || comment.user?.uid;
-                        const canDelete = currentUserId && commentAuthorId && commentAuthorId === currentUserId;
+                        const canDelete = currentUserId && (commentAuthorId === currentUserId || isOwnPost);
                         const isDeletingThis = deletingCommentId === commentId;
+                        const replyCount = comment.replyCount || comment.repliesCount || 0;
+                        const replies = repliesMap[commentId] || [];
+                        const isExpanded = expandedReplies[commentId];
                         return (
+                        <div key={commentId}>
                         <motion.div
-                          key={commentId}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.05, duration: 0.3 }}
@@ -431,7 +502,13 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                             />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="bg-gray-200 dark:bg-[#1a1a1a] rounded-2xl px-4 py-2.5 md:px-5 md:py-3 hover:bg-gray-300 dark:hover:bg-[#1f1f1f] transition-colors">
+                            <div className={`rounded-2xl px-4 py-2.5 md:px-5 md:py-3 transition-colors ${comment.isPinned ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800' : 'bg-gray-200 dark:bg-[#1a1a1a] hover:bg-gray-300 dark:hover:bg-[#1f1f1f]'}`}>
+                              {comment.isPinned && (
+                                <div className="flex items-center gap-1 mb-1">
+                                  <Pin className="w-3 h-3 text-yellow-600 dark:text-yellow-400" />
+                                  <span className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">Pinned</span>
+                                </div>
+                              )}
                               <button
                                 onClick={() => onViewUserProfile && commentUsername !== 'User' && onViewUserProfile(comment.user?.username || comment.username || comment.author?.username)}
                                 className="font-semibold text-sm md:text-base text-black dark:text-white mb-1 hover:opacity-70 transition-opacity cursor-pointer"
@@ -457,29 +534,47 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                                   {(comment.likesCount || comment.likes || 0) > 0 ? (comment.likesCount || comment.likes).toLocaleString() : "Like"}
                                 </span>
                               </button>
+                              <button
+                                onClick={() => setReplyingTo({ commentId, username: commentUsername })}
+                                className="flex items-center gap-1 text-xs md:text-sm text-gray-400 hover:text-primary transition-colors"
+                              >
+                                <Reply className="w-4 h-4" />
+                                Reply
+                              </button>
                               <span className="text-xs md:text-sm text-gray-500">
                                 {comment.time || (comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : 'now')}
                               </span>
                             </div>
-                          </div>
-                          {canDelete && (
-                            <div className="relative flex-shrink-0 self-start">
+                            {/* Reply thread toggle */}
+                            {replyCount > 0 && (
                               <button
-                                onClick={() => setCommentMenuOpenId(commentMenuOpenId === commentId ? null : commentId)}
-                                className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                                aria-label="Comment options"
+                                onClick={() => toggleReplies(commentId)}
+                                className="flex items-center gap-1 mt-2 px-2 text-xs text-primary hover:underline"
                               >
-                                <MoreVertical className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                                {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                {isExpanded ? 'Hide replies' : `View ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}`}
                               </button>
-                              {commentMenuOpenId === commentId && (
-                                <>
-                                  <div className="fixed inset-0 z-20" onClick={() => setCommentMenuOpenId(null)} aria-hidden="true" />
-                                  <motion.div
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className="absolute right-0 top-8 z-30 min-w-[140px] rounded-lg bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 shadow-lg py-1"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
+                            )}
+                          </div>
+                          {/* Comment menu - show for own comments/post owner (delete) or others (report) */}
+                          <div className="relative flex-shrink-0 self-start">
+                            <button
+                              onClick={() => setCommentMenuOpenId(commentMenuOpenId === commentId ? null : commentId)}
+                              className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                              aria-label="Comment options"
+                            >
+                              <MoreVertical className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                            </button>
+                            {commentMenuOpenId === commentId && (
+                              <>
+                                <div className="fixed inset-0 z-20" onClick={() => setCommentMenuOpenId(null)} aria-hidden="true" />
+                                <motion.div
+                                  initial={{ opacity: 0, scale: 0.95 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  className="absolute right-0 top-8 z-30 min-w-[140px] rounded-lg bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 shadow-lg py-1"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {canDelete && (
                                     <button
                                       onClick={() => handleDeleteComment(commentId)}
                                       disabled={isDeletingThis}
@@ -488,12 +583,80 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                                       <Trash2 className="w-4 h-4" />
                                       {isDeletingThis ? 'Deleting...' : 'Delete'}
                                     </button>
-                                  </motion.div>
-                                </>
-                              )}
-                            </div>
-                          )}
+                                  )}
+                                  {isOwnPost && !comment.isPinned && (
+                                    <button
+                                      onClick={() => { handlePinComment(commentId); setCommentMenuOpenId(null); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                                    >
+                                      <Pin className="w-4 h-4" />
+                                      Pin comment
+                                    </button>
+                                  )}
+                                  {isOwnPost && comment.isPinned && (
+                                    <button
+                                      onClick={() => { handlePinComment(commentId); setCommentMenuOpenId(null); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                                    >
+                                      <Pin className="w-4 h-4" />
+                                      Unpin comment
+                                    </button>
+                                  )}
+                                  {commentAuthorId !== currentUserId && (
+                                    <button
+                                      onClick={() => handleReportComment(commentId)}
+                                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                                    >
+                                      <Flag className="w-4 h-4" />
+                                      Report
+                                    </button>
+                                  )}
+                                </motion.div>
+                              </>
+                            )}
+                          </div>
                         </motion.div>
+
+                        {/* Reply thread */}
+                        {isExpanded && replies.length > 0 && (
+                          <div className="ml-12 md:ml-14 mt-2 space-y-3 border-l-2 border-gray-200 dark:border-gray-700 pl-3">
+                            {replies.map((reply) => {
+                              const replyUsername = reply.user?.username || reply.username || reply.author?.username || 'User';
+                              return (
+                                <motion.div
+                                  key={reply._id || reply.id}
+                                  initial={{ opacity: 0, x: -10 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  className="flex gap-2"
+                                >
+                                  <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 border border-gray-700">
+                                    <LiveProfilePhoto
+                                      imageSrc={reply.user?.profilePhoto || reply.author?.profilePhoto || reply.image}
+                                      videoSrc={getProfileVideoUrl(reply.user?.profilePhoto || reply.author?.profilePhoto || reply.image, replyUsername)}
+                                      alt={replyUsername}
+                                      className="w-7 h-7 rounded-full"
+                                    />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="bg-gray-100 dark:bg-[#1a1a1a] rounded-xl px-3 py-2">
+                                      <button
+                                        onClick={() => onViewUserProfile && replyUsername !== 'User' && onViewUserProfile(reply.user?.username || reply.username || reply.author?.username)}
+                                        className="font-semibold text-xs text-black dark:text-white hover:opacity-70 cursor-pointer"
+                                      >
+                                        {replyUsername}
+                                      </button>
+                                      <p className="text-xs text-gray-600 dark:text-gray-300 break-words">{reply.content || reply.text}</p>
+                                    </div>
+                                    <span className="text-xs text-gray-500 mt-1 px-1">
+                                      {reply.createdAt ? new Date(reply.createdAt).toLocaleDateString() : 'now'}
+                                    </span>
+                                  </div>
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        </div>
                       );
                       })}
                       {/* Invisible element to scroll to */}
@@ -509,6 +672,15 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                   transition={{ delay: 0.2, duration: 0.3 }}
                   className="border-t border-gray-300 dark:border-gray-800 p-3 md:p-5 bg-white dark:bg-[#0f0f0f] flex-shrink-0"
                 >
+                  {replyingTo && (
+                    <div className="flex items-center gap-2 mb-2 px-2 text-xs text-gray-500">
+                      <Reply className="w-3 h-3" />
+                      <span>Replying to <span className="font-semibold text-black dark:text-white">@{replyingTo.username}</span></span>
+                      <button onClick={() => setReplyingTo(null)} className="ml-auto text-gray-400 hover:text-red-500">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex gap-2 md:gap-4 items-center">
                     <div className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden flex-shrink-0 border border-gray-700">
                       <LiveProfilePhoto
@@ -524,7 +696,7 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
                         onKeyPress={(e) => e.key === "Enter" && handleSendComment()}
-                        placeholder="Add a comment..."
+                        placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : "Add a comment..."}
                         className="flex-1 min-w-0 bg-gray-100 dark:bg-[#1a1a1a] border border-gray-300 dark:border-gray-700 text-black dark:text-white rounded-full px-3 md:px-5 py-2 md:py-3 text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent placeholder-gray-500 transition-all"
                       />
                       <motion.button
@@ -561,6 +733,14 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
             message="Are you sure? This action cannot be undone. The post will be permanently removed from the database."
             confirmLabel="Delete post"
             cancelLabel="Cancel"
+          />
+
+          {/* Report Modal */}
+          <ReportModal
+            isOpen={showReportModal}
+            onClose={() => setShowReportModal(false)}
+            targetType={reportTarget.type}
+            targetId={reportTarget.id}
           />
         </>
       )}

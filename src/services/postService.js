@@ -230,4 +230,43 @@ export const postService = {
       throw error;
     }
   },
+
+  /**
+   * Pin comment
+   */
+  async pinComment(postId, commentId) {
+    try {
+      const response = await api.post(API_ENDPOINTS.POSTS.PIN_COMMENT(postId, commentId));
+      return response;
+    } catch (error) {
+      console.error('Pin comment error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Unpin comment
+   */
+  async unpinComment(postId, commentId) {
+    try {
+      const response = await api.delete(API_ENDPOINTS.POSTS.UNPIN_COMMENT(postId, commentId));
+      return response;
+    } catch (error) {
+      console.error('Unpin comment error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get comment replies
+   */
+  async getCommentReplies(postId, commentId, limit = 20, skip = 0) {
+    try {
+      const response = await api.get(API_ENDPOINTS.POSTS.COMMENT_REPLIES(postId, commentId), { limit, skip });
+      return response.success ? response.data : { replies: [] };
+    } catch (error) {
+      console.error('Get comment replies error:', error);
+      throw error;
+    }
+  },
 };
