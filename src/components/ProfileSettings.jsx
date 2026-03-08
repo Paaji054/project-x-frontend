@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { ArrowLeft, Camera, Video, Upload, X } from "lucide-react";
+import { ArrowLeft, Camera, Video, Upload, X, Plus, Link } from "lucide-react";
 import { toast } from "react-hot-toast";
 import LiveProfilePhoto from "../components/LiveProfilePhoto";
 import { useAuth } from "../context/AuthContext";
@@ -25,6 +25,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
     gender: user?.gender || "",
     website: user?.website || ""
   });
+  const [links, setLinks] = useState(user?.links || []);
   const [accountType, setAccountType] = useState(user?.accountType || "public");
   const [notifications, setNotifications] = useState({
     likes: user?.notificationSettings?.likes ?? true,
@@ -108,6 +109,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
         gender: user.gender ?? prev.gender,
         website: user.website ?? prev.website
       }));
+      setLinks(user.links || []);
     }
   }, [user]);
 
@@ -272,6 +274,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
         phone: formData.phone || '',
         gender: formData.gender || '',
         website: formData.website || '',
+        links: links.filter(l => l.trim()),
         accountType: accountType,
         notificationSettings: notifications,
         readReceiptsEnabled: readReceiptsEnabled
@@ -525,6 +528,50 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
                 placeholder="example.com or https://example.com"
                 className="w-full bg-gray-100 dark:bg-[#1a1a1a] border border-black dark:border-gray-800 rounded-lg px-4 py-3 text-black dark:text-white placeholder-gray-600 focus:outline-none focus:border-primary transition-colors"
               />
+            </div>
+
+            {/* Links */}
+            <div>
+              <label className="block text-sm font-medium text-primary mb-2">
+                <div className="flex items-center gap-1">
+                  <Link className="w-4 h-4" />
+                  Links (up to 5)
+                </div>
+              </label>
+              <div className="space-y-2">
+                {links.map((link, index) => (
+                  <div key={index} className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={link}
+                      onChange={(e) => {
+                        const updated = [...links];
+                        updated[index] = e.target.value;
+                        setLinks(updated);
+                      }}
+                      placeholder="https://example.com"
+                      className="flex-1 bg-gray-100 dark:bg-[#1a1a1a] border border-black dark:border-gray-800 rounded-lg px-4 py-2.5 text-sm text-black dark:text-white placeholder-gray-600 focus:outline-none focus:border-primary transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setLinks(links.filter((_, i) => i !== index))}
+                      className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {links.length < 5 && (
+                  <button
+                    type="button"
+                    onClick={() => setLinks([...links, ''])}
+                    className="flex items-center gap-1 text-sm text-primary hover:text-primary-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add link
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Email */}

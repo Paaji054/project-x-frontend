@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ChevronDown, ChevronUp, MapPin, UserPlus, Smile, X, Music, Type, Filter, Edit3, Crop, Sun, Contrast, Droplet, Thermometer, Circle, Navigation, Loader2, Check } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, MapPin, UserPlus, Smile, X, Music, Type, Filter, Edit3, Crop, Sun, Contrast, Droplet, Thermometer, Circle, Navigation, Loader2, Check, Palette } from "lucide-react";
 import EmojiPickerReact from 'emoji-picker-react';
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useAuth } from "../context/AuthContext";
@@ -77,6 +77,28 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
   const [locationResults, setLocationResults] = useState([]);
   const [locationLoading, setLocationLoading] = useState(false);
   const [detectingLocation, setDetectingLocation] = useState(false);
+
+  // Color palette and font family
+  const [colorPalette, setColorPalette] = useState({ background: '', text: '', accent: '' });
+  const [fontFamily, setFontFamily] = useState('');
+
+  const FONT_OPTIONS = [
+    'Inter', 'Roboto', 'Poppins', 'Montserrat', 'Playfair Display', 'Lora',
+    'Oswald', 'Raleway', 'Merriweather', 'Nunito', 'Quicksand', 'Dancing Script',
+    'Pacifico', 'Bebas Neue', 'Comfortaa', 'Space Grotesk', 'DM Sans', 'Caveat',
+    'Satisfy', 'Abril Fatface'
+  ];
+
+  const PALETTE_PRESETS = [
+    { name: 'Classic', background: '#FFFFFF', text: '#000000', accent: '#3B82F6' },
+    { name: 'Dark', background: '#1A1A1A', text: '#FFFFFF', accent: '#8B5CF6' },
+    { name: 'Sunset', background: '#FFF7ED', text: '#9A3412', accent: '#F97316' },
+    { name: 'Forest', background: '#F0FDF4', text: '#166534', accent: '#22C55E' },
+    { name: 'Ocean', background: '#EFF6FF', text: '#1E40AF', accent: '#3B82F6' },
+    { name: 'Rose', background: '#FFF1F2', text: '#9F1239', accent: '#F43F5E' },
+    { name: 'Midnight', background: '#0F172A', text: '#E2E8F0', accent: '#6366F1' },
+    { name: 'Warm', background: '#FFFBEB', text: '#92400E', accent: '#F59E0B' },
+  ];
 
   // Tag people — all-user search
   const [userSearchResults, setUserSearchResults] = useState([]);
@@ -595,6 +617,14 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
         turnOffCommenting: turnOffCommenting,
       };
 
+      // Add color palette if any color is set
+      if (colorPalette.background || colorPalette.text || colorPalette.accent) {
+        postData.colorPalette = colorPalette;
+      }
+      if (fontFamily) {
+        postData.fontFamily = fontFamily;
+      }
+
       // Add communityId if posting to a community
       if (communityId) {
         postData.communityId = communityId;
@@ -660,6 +690,8 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
     setTextOverlays([]);
     setActiveAdjustment(null);
     setFinalEditedImage(null);
+    setColorPalette({ background: '', text: '', accent: '' });
+    setFontFamily('');
     if (onClose) {
       onClose();
     }
@@ -1626,7 +1658,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                 </div>
 
                 {/* Settings Sidebar */}
-                <div className="w-96 bg-[#1a1a1a] border-l border-gray-800 flex flex-col overflow-visible relative">
+                <div className="w-72 lg:w-96 bg-[#1a1a1a] border-l border-gray-800 flex flex-col overflow-visible relative">
                   {/* User Profile */}
                   <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800">
                     <img
@@ -1688,6 +1720,67 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                         <span className={`text-xs ${caption.length >= 2200 ? 'text-red-400' : 'text-gray-400'}`}>
                           {caption.length}/2,200
                         </span>
+                      </div>
+                    </div>
+
+                    {/* Color Palette */}
+                    <div className="px-3 lg:px-4 py-3 border-b border-gray-800">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Palette className="w-4 h-4 text-white" />
+                        <span className="text-sm text-white font-medium">Color Palette</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1.5 mb-2">
+                        {PALETTE_PRESETS.map((preset) => (
+                          <button
+                            key={preset.name}
+                            onClick={() => setColorPalette({ background: preset.background, text: preset.text, accent: preset.accent })}
+                            title={preset.name}
+                            className={`flex flex-col items-center gap-1 p-1.5 rounded-lg border transition-colors ${
+                              colorPalette.background === preset.background && colorPalette.text === preset.text
+                                ? 'border-primary bg-primary/10'
+                                : 'border-gray-700 hover:border-gray-500'
+                            }`}
+                          >
+                            <div className="flex gap-0.5">
+                              <div className="w-3.5 h-3.5 lg:w-4 lg:h-4 rounded-full border border-gray-600" style={{ backgroundColor: preset.background }} />
+                              <div className="w-3.5 h-3.5 lg:w-4 lg:h-4 rounded-full border border-gray-600" style={{ backgroundColor: preset.text }} />
+                              <div className="w-3.5 h-3.5 lg:w-4 lg:h-4 rounded-full border border-gray-600" style={{ backgroundColor: preset.accent }} />
+                            </div>
+                            <span className="text-[9px] lg:text-[10px] text-gray-400 truncate w-full text-center">{preset.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                      {(colorPalette.background || colorPalette.text || colorPalette.accent) && (
+                        <button
+                          onClick={() => setColorPalette({ background: '', text: '', accent: '' })}
+                          className="text-xs text-red-400 hover:text-red-300"
+                        >
+                          Clear palette
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Font Family */}
+                    <div className="px-3 lg:px-4 py-3 border-b border-gray-800">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Type className="w-4 h-4 text-white" />
+                        <span className="text-sm text-white font-medium">Font Style</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 max-h-32 lg:max-h-40 overflow-y-auto scrollbar-hide">
+                        {FONT_OPTIONS.map((font) => (
+                          <button
+                            key={font}
+                            onClick={() => setFontFamily(fontFamily === font ? '' : font)}
+                            className={`px-2 py-1 rounded-md border text-xs transition-colors flex-shrink-0 ${
+                              fontFamily === font
+                                ? 'border-primary bg-primary/10 text-white'
+                                : 'border-gray-700 text-gray-300 hover:border-gray-500'
+                            }`}
+                            style={{ fontFamily: font }}
+                          >
+                            {font}
+                          </button>
+                        ))}
                       </div>
                     </div>
 
@@ -2985,6 +3078,66 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                     <option value="business">Business</option>
                     <option value="lifestyle">Lifestyle</option>
                   </select>
+                </div>
+
+                {/* Color Palette (Mobile) */}
+                <div className="px-4 py-3 border-b border-gray-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Palette className="w-4 h-4 text-white" />
+                    <span className="text-sm text-white font-medium">Color Palette</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 mb-3">
+                    {PALETTE_PRESETS.map((preset) => (
+                      <button
+                        key={preset.name}
+                        onClick={() => setColorPalette({ background: preset.background, text: preset.text, accent: preset.accent })}
+                        className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors ${
+                          colorPalette.background === preset.background && colorPalette.text === preset.text
+                            ? 'border-primary bg-primary/10'
+                            : 'border-gray-700 hover:border-gray-500'
+                        }`}
+                      >
+                        <div className="flex gap-0.5">
+                          <div className="w-4 h-4 rounded-full border border-gray-600" style={{ backgroundColor: preset.background }} />
+                          <div className="w-4 h-4 rounded-full border border-gray-600" style={{ backgroundColor: preset.text }} />
+                          <div className="w-4 h-4 rounded-full border border-gray-600" style={{ backgroundColor: preset.accent }} />
+                        </div>
+                        <span className="text-[10px] text-gray-400">{preset.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {(colorPalette.background || colorPalette.text || colorPalette.accent) && (
+                    <button
+                      onClick={() => setColorPalette({ background: '', text: '', accent: '' })}
+                      className="text-xs text-red-400 hover:text-red-300"
+                    >
+                      Clear palette
+                    </button>
+                  )}
+                </div>
+
+                {/* Font Family (Mobile) */}
+                <div className="px-4 py-3 border-b border-gray-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Type className="w-4 h-4 text-white" />
+                    <span className="text-sm text-white font-medium">Font Style</span>
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    {FONT_OPTIONS.map((font) => (
+                      <button
+                        key={font}
+                        onClick={() => setFontFamily(fontFamily === font ? '' : font)}
+                        className={`px-3 py-2 rounded-lg border text-xs whitespace-nowrap transition-colors flex-shrink-0 ${
+                          fontFamily === font
+                            ? 'border-primary bg-primary/10 text-white'
+                            : 'border-gray-700 text-gray-300 hover:border-gray-500'
+                        }`}
+                        style={{ fontFamily: font }}
+                      >
+                        {font}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Add Audio */}

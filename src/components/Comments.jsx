@@ -1,18 +1,26 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, MoreVertical, Trash2 } from "lucide-react";
+import { Heart, MoreVertical, Trash2, Flag, Reply, Pin, ChevronDown, ChevronUp } from "lucide-react";
 import LiveProfilePhoto from "./LiveProfilePhoto";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { getProfileVideoUrl } from "../utils/profileVideos";
 import { formatDistanceToNow } from "date-fns";
+import ReportModal from "./ReportModal";
+import { postService } from "../services/postService";
 
-export default function Comments({ isOpen, onClose, variant = "sidebar", initialComments = [], onViewUserProfile, onAddComment, onLikeComment, onDeleteComment, currentUserId, postId }) {
+export default function Comments({ isOpen, onClose, variant = "sidebar", initialComments = [], onViewUserProfile, onAddComment, onLikeComment, onDeleteComment, currentUserId, postId, postOwnerId }) {
   const [newComment, setNewComment] = useState("");
   const [comments, setComments] = useState(initialComments);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [openMenuCommentId, setOpenMenuCommentId] = useState(null);
   const [deletingCommentId, setDeletingCommentId] = useState(null);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportTargetId, setReportTargetId] = useState('');
+  const [expandedReplies, setExpandedReplies] = useState({});
+  const [repliesMap, setRepliesMap] = useState({});
   const { profilePhoto, profileVideo, username } = useUserProfile();
+  const isOwnPost = currentUserId && postOwnerId && postOwnerId === currentUserId;
 
   // Reset comments when modal opens/closes or initialComments changes
   useEffect(() => {
@@ -81,6 +89,39 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
     }
   };
 
+  const toggleReplies = async (commentId) => {
+    if (expandedReplies[commentId]) {
+      setExpandedReplies(prev => ({ ...prev, [commentId]: false }));
+      return;
+    }
+    try {
+      const res = await postService.getCommentReplies(postId, commentId);
+      setRepliesMap(prev => ({ ...prev, [commentId]: res.replies || [] }));
+      setExpandedReplies(prev => ({ ...prev, [commentId]: true }));
+    } catch (err) {
+      console.error('Error loading replies:', err);
+    }
+  };
+
+  const handlePinComment = async (commentId) => {
+    if (!postId) return;
+    try {
+      const comment = comments.find(c => (c._id || c.id) === commentId);
+      if (comment?.isPinned) {
+        await postService.unpinComment(postId, commentId);
+      } else {
+        await postService.pinComment(postId, commentId);
+      }
+      setComments(prev => prev.map(c => ({
+        ...c,
+        isPinned: (c._id || c.id) === commentId ? !c.isPinned : false
+      })));
+      setOpenMenuCommentId(null);
+    } catch (err) {
+      console.error('Error pinning comment:', err);
+    }
+  };
+
   const handleSendComment = async () => {
     if (!newComment.trim() || isSubmitting) return;
 
@@ -90,14 +131,21 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
 
     try {
       if (onAddComment) {
-        // Use the parent's callback to add comment to API
-        const addedComment = await onAddComment(commentText);
-        // API returns comment with userId, text; enrich with current user for display if missing
+        const addedComment = await onAddComment(commentText, replyingTo?.commentId || null);
         if (addedComment) {
           const toAdd = addedComment.user?.username || addedComment.username
             ? addedComment
             : { ...addedComment, content: addedComment.content ?? addedComment.text, username, user: { uid: currentUserId, username, profilePhoto } };
-          setComments(prev => [...prev, toAdd]);
+          if (replyingTo) {
+            setRepliesMap(prev => ({
+              ...prev,
+              [replyingTo.commentId]: [...(prev[replyingTo.commentId] || []), toAdd]
+            }));
+            setExpandedReplies(prev => ({ ...prev, [replyingTo.commentId]: true }));
+            setReplyingTo(null);
+          } else {
+            setComments(prev => [...prev, toAdd]);
+          }
         }
       } else {
         // Fallback to local state if no callback provided
@@ -165,11 +213,14 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
               const commentLikes = comment.likesCount || comment.likes || 0;
               const isCommentLiked = comment.isLiked || comment.liked;
               const commentAuthorId = comment.userId || comment.user?.uid;
-              const canDeleteComment = currentUserId && commentAuthorId && commentAuthorId === currentUserId && onDeleteComment && postId;
+              const canDeleteComment = currentUserId && (commentAuthorId === currentUserId || isOwnPost) && onDeleteComment && postId;
               const isDeletingThis = deletingCommentId === commentId;
+              const replyCount = comment.replyCount || comment.repliesCount || 0;
+              const replies = repliesMap[commentId] || [];
+              const isExpanded = expandedReplies[commentId];
               return (
+              <div key={commentId}>
               <motion.div
-                key={commentId}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05, duration: 0.3 }}
@@ -184,7 +235,13 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="bg-gray-100 dark:bg-[#1a1a1a] rounded-2xl px-4 py-2.5 md:px-5 md:py-3 dark:hover:bg-[#1f1f1f] hover:bg-gray-200 transition-colors">
+                  <div className={`rounded-2xl px-4 py-2.5 md:px-5 md:py-3 transition-colors ${comment.isPinned ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800' : 'bg-gray-100 dark:bg-[#1a1a1a] hover:bg-gray-200 dark:hover:bg-[#1f1f1f]'}`}>
+                    {comment.isPinned && (
+                      <div className="flex items-center gap-1 mb-1">
+                        <Pin className="w-3 h-3 text-yellow-600 dark:text-yellow-400" />
+                        <span className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">Pinned</span>
+                      </div>
+                    )}
                     <button
                       onClick={() => onViewUserProfile && onViewUserProfile(commentUser)}
                       className="font-semibold text-sm md:text-base dark:text-white text-black mb-1 hover:opacity-70 transition-opacity cursor-pointer"
@@ -206,29 +263,45 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
                         {commentLikes > 0 ? commentLikes.toLocaleString() : 'Like'}
                       </span>
                     </button>
+                    <button
+                      onClick={() => setReplyingTo({ commentId, username: commentUser })}
+                      className="flex items-center gap-1 text-xs md:text-sm text-gray-400 hover:text-primary transition-colors"
+                    >
+                      <Reply className="w-4 h-4" />
+                      Reply
+                    </button>
                     <span className="text-xs md:text-sm text-gray-500">
                       {comment.createdAt ? formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true }) : ''}
                     </span>
                   </div>
-                </div>
-                {canDeleteComment && (
-                  <div className="relative flex-shrink-0 self-start">
+                  {replyCount > 0 && (
                     <button
-                      onClick={() => setOpenMenuCommentId(openMenuCommentId === commentId ? null : commentId)}
-                      className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                      aria-label="Comment options"
+                      onClick={() => toggleReplies(commentId)}
+                      className="flex items-center gap-1 mt-2 px-2 text-xs text-primary hover:underline"
                     >
-                      <MoreVertical className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                      {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                      {isExpanded ? 'Hide replies' : `View ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}`}
                     </button>
-                    {openMenuCommentId === commentId && (
-                      <>
-                        <div className="fixed inset-0 z-10" onClick={() => setOpenMenuCommentId(null)} aria-hidden="true" />
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          className="absolute right-0 top-8 z-20 min-w-[140px] rounded-lg bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 shadow-lg py-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
+                  )}
+                </div>
+                <div className="relative flex-shrink-0 self-start">
+                  <button
+                    onClick={() => setOpenMenuCommentId(openMenuCommentId === commentId ? null : commentId)}
+                    className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    aria-label="Comment options"
+                  >
+                    <MoreVertical className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                  </button>
+                  {openMenuCommentId === commentId && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setOpenMenuCommentId(null)} aria-hidden="true" />
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="absolute right-0 top-8 z-20 min-w-[140px] rounded-lg bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 shadow-lg py-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {canDeleteComment && (
                           <button
                             onClick={() => handleDeleteComment(commentId)}
                             disabled={isDeletingThis}
@@ -237,12 +310,70 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
                             <Trash2 className="w-4 h-4" />
                             {isDeletingThis ? 'Deleting...' : 'Delete'}
                           </button>
-                        </motion.div>
-                      </>
-                    )}
-                  </div>
-                )}
+                        )}
+                        {isOwnPost && (
+                          <button
+                            onClick={() => handlePinComment(commentId)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                          >
+                            <Pin className="w-4 h-4" />
+                            {comment.isPinned ? 'Unpin comment' : 'Pin comment'}
+                          </button>
+                        )}
+                        {commentAuthorId !== currentUserId && (
+                          <button
+                            onClick={() => { setReportTargetId(commentId); setShowReportModal(true); setOpenMenuCommentId(null); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                          >
+                            <Flag className="w-4 h-4" />
+                            Report
+                          </button>
+                        )}
+                      </motion.div>
+                    </>
+                  )}
+                </div>
               </motion.div>
+              {/* Reply thread */}
+              {isExpanded && replies.length > 0 && (
+                <div className="ml-12 md:ml-14 mt-2 space-y-3 border-l-2 border-gray-200 dark:border-gray-700 pl-3">
+                  {replies.map((reply) => {
+                    const replyUsername = reply.user?.username || reply.username || reply.author?.username || 'User';
+                    return (
+                      <motion.div
+                        key={reply._id || reply.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="flex gap-2"
+                      >
+                        <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 border border-gray-700">
+                          <LiveProfilePhoto
+                            imageSrc={reply.user?.profilePhoto || reply.author?.profilePhoto || reply.image}
+                            videoSrc={getProfileVideoUrl(reply.user?.profilePhoto || reply.author?.profilePhoto || reply.image, replyUsername)}
+                            alt={replyUsername}
+                            className="w-7 h-7 rounded-full"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="bg-gray-100 dark:bg-[#1a1a1a] rounded-xl px-3 py-2">
+                            <button
+                              onClick={() => onViewUserProfile && replyUsername !== 'User' && onViewUserProfile(reply.user?.username || reply.username || reply.author?.username)}
+                              className="font-semibold text-xs text-black dark:text-white hover:opacity-70 cursor-pointer"
+                            >
+                              {replyUsername}
+                            </button>
+                            <p className="text-xs text-gray-600 dark:text-gray-300 break-words">{reply.content || reply.text}</p>
+                          </div>
+                          <span className="text-xs text-gray-500 mt-1 px-1">
+                            {reply.createdAt ? new Date(reply.createdAt).toLocaleDateString() : 'now'}
+                          </span>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+              </div>
             );
             })}
           </AnimatePresence>
@@ -256,6 +387,15 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
         transition={{ delay: 0.2, duration: 0.3 }}
         className="border-t border-gray-200 dark:border-gray-800 p-3 md:p-5 bg-white dark:bg-[#0f0f0f] flex-shrink-0"
       >
+        {replyingTo && (
+          <div className="flex items-center gap-2 mb-2 px-2 text-xs text-gray-500">
+            <Reply className="w-3 h-3" />
+            <span>Replying to <span className="font-semibold text-black dark:text-white">@{replyingTo.username}</span></span>
+            <button onClick={() => setReplyingTo(null)} className="ml-auto text-gray-400 hover:text-red-500">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        )}
         <div className="flex gap-2 md:gap-4 items-center">
           <div className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden flex-shrink-0 border dark:border-gray-700 border-gray-300">
             <LiveProfilePhoto
@@ -271,7 +411,7 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSendComment()}
-              placeholder="Add a comment..."
+              placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : "Add a comment..."}
               className="flex-1 min-w-0 bg-gray-100 dark:bg-[#1a1a1a] border dark:border-gray-700 border-gray-300 dark:text-white text-black rounded-full px-3 md:px-5 py-2 md:py-3 text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:placeholder-gray-500 placeholder-gray-400 transition-all"
             />
             <motion.button
@@ -290,6 +430,14 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
           </div>
         </div>
       </motion.div>
+
+      {/* Report Modal */}
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetType="comment"
+        targetId={reportTargetId}
+      />
     </>
   );
 
