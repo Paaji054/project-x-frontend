@@ -82,17 +82,18 @@ export default function ShareModal({ isOpen, onClose, onViewUserProfile, postId,
           }
           
           if (conversationId && friend.userId) {
-            // Send message with shared post
-            const shareText = postUrl 
-              ? `Check out this post: ${postUrl}`
+            // Send message with shared post as post_share type
+            const shareText = postId
+              ? `Shared a post with you`
               : `Shared a post with you!`;
             
             await messageService.sendMessage(
               conversationId,
               friend.userId,
               shareText,
-              postUrl,
-              postUrl ? 'image' : 'text'
+              postUrl || null,
+              postId ? 'post_share' : 'text',
+              postId || null
             );
           }
         } catch (err) {

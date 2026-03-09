@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ChevronDown, ChevronUp, MapPin, UserPlus, Smile, X, Music, Type, Filter, Edit3, Crop, Sun, Contrast, Droplet, Thermometer, Circle, Navigation, Loader2, Check, Palette } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, MapPin, UserPlus, Smile, X, Music, Type, Filter, Edit3, Crop, Sun, Contrast, Droplet, Thermometer, Circle, Navigation, Loader2, Check, Palette, Sparkles } from "lucide-react";
 import EmojiPickerReact from 'emoji-picker-react';
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useAuth } from "../context/AuthContext";
@@ -8,6 +8,8 @@ import uploadIcon from "../assets/upload.svg";
 import { uploadService } from "../services/uploadService";
 import { postService } from "../services/postService";
 import { userService } from "../services/userService";
+import { aiService } from "../services/aiService";
+import { toast } from "react-hot-toast";
 import { useDebounce } from "../hooks/useDebounce";
 
 export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreated, communityId }) {
@@ -929,6 +931,25 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
     });
   };
 
+  // AI caption generation
+  const [isGeneratingCaption, setIsGeneratingCaption] = useState(false);
+  const handleGenerateCaption = async () => {
+    try {
+      setIsGeneratingCaption(true);
+      const context = category !== 'general' ? `A ${category} post` : '';
+      const result = await aiService.generateCaption(null, context);
+      if (result?.caption) {
+        setCaption(result.caption.slice(0, 2200));
+        toast.success('Caption generated!');
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.error?.message || err?.message || 'Failed to generate caption';
+      toast.error(msg);
+    } finally {
+      setIsGeneratingCaption(false);
+    }
+  };
+
   // Mock gallery images for mobile
   const galleryImages = Array.from({ length: 20 }).map((_, i) => ({
     id: i,
@@ -1682,11 +1703,12 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                         maxLength={2200}
                       />
                       <div className="flex items-center justify-between mt-2">
-                        <div className="relative overflow-visible" ref={emojiPickerRef}>
-                          <Smile
-                            className="w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-300"
-                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                          />
+                        <div className="flex items-center gap-3">
+                          <div className="relative overflow-visible" ref={emojiPickerRef}>
+                            <Smile
+                              className="w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-300"
+                              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            />
                           {showEmojiPicker && (
                             <AnimatePresence>
                               <motion.div
@@ -1716,6 +1738,21 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                               </motion.div>
                             </AnimatePresence>
                           )}
+                        </div>
+                          <button
+                            type="button"
+                            onClick={handleGenerateCaption}
+                            disabled={isGeneratingCaption}
+                            className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors disabled:opacity-50"
+                            title="Generate AI caption"
+                          >
+                            {isGeneratingCaption ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-4 h-4" />
+                            )}
+                            <span>AI Caption</span>
+                          </button>
                         </div>
                         <span className={`text-xs ${caption.length >= 2200 ? 'text-red-400' : 'text-gray-400'}`}>
                           {caption.length}/2,200
@@ -3011,11 +3048,12 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                     maxLength={2200}
                   />
                   <div className="flex items-center justify-between mt-2">
-                    <div className="relative" ref={emojiPickerRef} style={{ overflow: 'visible', zIndex: 200 }}>
-                      <Smile
-                        className="w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-300"
-                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                      />
+                    <div className="flex items-center gap-3">
+                      <div className="relative" ref={emojiPickerRef} style={{ overflow: 'visible', zIndex: 200 }}>
+                        <Smile
+                          className="w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-300"
+                          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                        />
                       <AnimatePresence>
                         {showEmojiPicker && (
                           <motion.div
@@ -3050,6 +3088,21 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                           </motion.div>
                         )}
                       </AnimatePresence>
+                    </div>
+                      <button
+                        type="button"
+                        onClick={handleGenerateCaption}
+                        disabled={isGeneratingCaption}
+                        className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors disabled:opacity-50"
+                        title="Generate AI caption"
+                      >
+                        {isGeneratingCaption ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="w-4 h-4" />
+                        )}
+                        <span>AI Caption</span>
+                      </button>
                     </div>
                     <span className={`text-xs ${caption.length >= 2200 ? 'text-red-400' : 'text-gray-400'}`}>
                       {caption.length}/2,200

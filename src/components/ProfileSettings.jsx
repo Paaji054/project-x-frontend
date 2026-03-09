@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
-import { ArrowLeft, Camera, Video, Upload, X, Plus, Link } from "lucide-react";
+import { ArrowLeft, Camera, Video, Upload, X, Plus, Link, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import LiveProfilePhoto from "../components/LiveProfilePhoto";
 import { useAuth } from "../context/AuthContext";
 import { userService, uploadService } from "../services";
+import { aiService } from "../services/aiService";
 
 export default function ProfileSettings({ onBack, onProfileUpdate }) {
   const { user, updateUser } = useAuth();
@@ -55,6 +56,52 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
   const [profileVideoPreview, setProfileVideoPreview] = useState(
     user?.profileVideo || null
   );
+
+  // AI generation states
+  const [isGeneratingBio, setIsGeneratingBio] = useState(false);
+  const [showBioAIOptions, setShowBioAIOptions] = useState(false);
+  const [bioTone, setBioTone] = useState('casual');
+  const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
+  const [showAvatarAIInput, setShowAvatarAIInput] = useState(false);
+  const [avatarDescription, setAvatarDescription] = useState('');
+
+  const handleGenerateBio = async () => {
+    try {
+      setIsGeneratingBio(true);
+      const interests = formData.bio ? formData.bio.split(/[,.\n]/).map(s => s.trim()).filter(Boolean).slice(0, 5) : [];
+      const result = await aiService.generateBio(interests, bioTone);
+      if (result?.bio) {
+        setFormData(prev => ({ ...prev, bio: result.bio.slice(0, 500) }));
+        toast.success('Bio generated!');
+        setShowBioAIOptions(false);
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.error?.message || err?.message || 'Failed to generate bio');
+    } finally {
+      setIsGeneratingBio(false);
+    }
+  };
+
+  const handleGenerateAvatar = async () => {
+    if (!avatarDescription.trim()) {
+      toast.error('Please describe your avatar');
+      return;
+    }
+    try {
+      setIsGeneratingAvatar(true);
+      const result = await aiService.generateAvatar(avatarDescription.trim());
+      if (result?.avatarUrl) {
+        setProfilePhotoPreview(result.avatarUrl);
+        toast.success('Avatar generated!');
+        setShowAvatarAIInput(false);
+        setAvatarDescription('');
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.error?.message || err?.message || 'Failed to generate avatar');
+    } finally {
+      setIsGeneratingAvatar(false);
+    }
+  };
 
   // Fetch user stats on mount
   useEffect(() => {
@@ -398,6 +445,49 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
               <p className="text-center md:text-left text-xs text-gray-500">
                 {user?.displayName || user?.username || 'User'}
               </p>
+
+              {/* AI Avatar Generation */}
+              <div className="mt-3">
+                {!showAvatarAIInput ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAvatarAIInput(true)}
+                    className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition-colors mx-auto md:mx-0"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Generate AI Avatar</span>
+                  </button>
+                ) : (
+                  <div className="space-y-2 max-w-xs mx-auto md:mx-0">
+                    <input
+                      type="text"
+                      value={avatarDescription}
+                      onChange={(e) => setAvatarDescription(e.target.value)}
+                      placeholder="Describe your avatar (e.g., a cool astronaut)"
+                      maxLength={200}
+                      className="w-full bg-gray-100 dark:bg-[#1a1a1a] border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-xs text-black dark:text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleGenerateAvatar}
+                        disabled={isGeneratingAvatar || !avatarDescription.trim()}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg disabled:opacity-50 transition-colors"
+                      >
+                        {isGeneratingAvatar ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                        {isGeneratingAvatar ? 'Generating...' : 'Generate'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowAvatarAIInput(false); setAvatarDescription(''); }}
+                        className="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
               <div className="flex justify-center md:justify-start gap-6 mt-3 text-sm">
                 <div className="text-center">
                   <p className="font-bold">{statsLoading ? "..." : stats.posts}</p>
@@ -500,9 +590,45 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
 
             {/* Bio */}
             <div>
-              <label className="block text-sm font-medium text-primary mb-2">
-                Bio
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-primary">
+                  Bio
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowBioAIOptions(!showBioAIOptions)}
+                  className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>AI Generate</span>
+                </button>
+              </div>
+              {showBioAIOptions && (
+                <div className="mb-2 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                  <p className="text-xs text-gray-400 mb-2">Pick a tone for your bio:</p>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {['casual', 'professional', 'funny', 'creative'].map(tone => (
+                      <button
+                        key={tone}
+                        type="button"
+                        onClick={() => setBioTone(tone)}
+                        className={`px-3 py-1 text-xs rounded-full border transition-colors ${bioTone === tone ? 'bg-purple-600 border-purple-600 text-white' : 'border-gray-600 text-gray-400 hover:border-purple-500'}`}
+                      >
+                        {tone.charAt(0).toUpperCase() + tone.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGenerateBio}
+                    disabled={isGeneratingBio}
+                    className="flex items-center gap-1.5 px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg disabled:opacity-50 transition-colors"
+                  >
+                    {isGeneratingBio ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    {isGeneratingBio ? 'Generating...' : 'Generate Bio'}
+                  </button>
+                </div>
+              )}
               <textarea
                 name="bio"
                 value={formData.bio}

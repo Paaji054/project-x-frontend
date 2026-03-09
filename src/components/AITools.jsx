@@ -71,7 +71,8 @@ const AITools = () => {
     
     try {
       setLoading(true);
-      const data = await aiService.generateBio(bioDescription);
+      const interests = bioDescription.split(/[,.]/).map(s => s.trim()).filter(Boolean);
+      const data = await aiService.generateBio(interests, 'casual');
       setResult({ type: 'bio', data });
       await loadInitialData();
     } catch (err) {
@@ -86,7 +87,7 @@ const AITools = () => {
     
     try {
       setLoading(true);
-      const data = await aiService.generateTheme({ prompt: themePrompt });
+      const data = await aiService.generateTheme(themePrompt);
       setResult({ type: 'theme', data });
       await loadInitialData();
     } catch (err) {
@@ -101,7 +102,7 @@ const AITools = () => {
     
     try {
       setLoading(true);
-      const data = await aiService.generateAvatar(avatarConfig);
+      const data = await aiService.generateAvatar(avatarConfig.description);
       setResult({ type: 'avatar', data });
       await loadInitialData();
     } catch (err) {

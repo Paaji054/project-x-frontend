@@ -160,7 +160,7 @@ export default function PostCard({
         </div>
 
         {/* Share Modal */}
-        <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} onViewUserProfile={onViewUserProfile} />
+        <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} onViewUserProfile={onViewUserProfile} postId={postData._id || postData.id || postId} postUrl={postImage} />
       </>
     );
   }
@@ -230,7 +230,7 @@ export default function PostCard({
       </div>
 
       {/* Share Modal */}
-      <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} />
+      <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} postId={postData._id || postData.id || postId} postUrl={postImage} />
     </>
   );
 }

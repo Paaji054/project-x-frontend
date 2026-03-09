@@ -38,19 +38,24 @@ export const messageService = {
 
   /**
    * Send message (updated to match backend)
-   * Backend expects: conversationId, recipientId, text, mediaUrl
+   * Backend expects: conversationId, recipientId, text, mediaUrl, type, sharedPostId
    * For WebSocket: use socketService.sendMessage() instead
    */
-  async sendMessage(conversationId, recipientId, text, mediaUrl = null, type = 'text') {
+  async sendMessage(conversationId, recipientId, text, mediaUrl = null, type = 'text', sharedPostId = null) {
     try {
-      // Backend expects: conversationId, recipientId, text, mediaUrl
-      const response = await api.post(API_ENDPOINTS.MESSAGES.SEND, {
+      const payload = {
         conversationId,
         recipientId,
-        text: type === 'text' ? text : '', // Text content for text messages
-        mediaUrl: type !== 'text' ? text : mediaUrl, // Use text as URL for media messages
-        type, // Message type: text, image, video, voice
-      });
+        text: type === 'text' || type === 'post_share' ? text : '', // Text content for text/post_share messages
+        mediaUrl: (type !== 'text' && type !== 'post_share') ? text : mediaUrl, // Use text as URL for media messages
+        type, // Message type: text, image, video, voice, post_share
+      };
+      // Include sharedPostId for post_share messages
+      if (sharedPostId) {
+        payload.sharedPostId = sharedPostId;
+      }
+      // Backend expects: conversationId, recipientId, text, mediaUrl
+      const response = await api.post(API_ENDPOINTS.MESSAGES.SEND, payload);
       // Backend returns: { success: true, data: { message: {...} }, message: 'Message sent' }
       // Message fields: _id, conversationId, senderId, recipientId, text, mediaUrl, type, 
       // createdAt, updatedAt, sender: { uid, username, displayName, avatar }
