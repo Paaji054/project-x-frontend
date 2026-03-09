@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminService, analyticsService } from '../services';
+import { toast } from 'react-hot-toast';
 import { FiUsers, FiTrash2, FiShield, FiActivity, FiTrendingUp } from 'react-icons/fi';
 
 const AdminDashboard = () => {
@@ -37,9 +38,10 @@ const AdminDashboard = () => {
     
     try {
       await adminService.deleteUser(userId);
+      toast.success('User deleted successfully');
       await loadData();
     } catch (err) {
-      alert('Failed to delete user');
+      toast.error('Failed to delete user');
       console.error(err);
     }
   };
@@ -47,9 +49,10 @@ const AdminDashboard = () => {
   const handleSetRole = async (userId, role) => {
     try {
       await adminService.setUserRole(userId, role);
+      toast.success('User role updated successfully');
       await loadData();
     } catch (err) {
-      alert('Failed to update user role');
+      toast.error('Failed to update user role');
       console.error(err);
     }
   };

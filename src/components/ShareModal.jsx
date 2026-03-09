@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import LiveProfilePhoto from "./LiveProfilePhoto";
 import { getProfileVideoUrl } from "../utils/profileVideos";
 import { postService, messageService, userService } from "../services";
+import { toast } from "react-hot-toast";
 
 export default function ShareModal({ isOpen, onClose, onViewUserProfile, postId, postUrl }) {
   const navigate = useNavigate();
@@ -118,7 +119,7 @@ export default function ShareModal({ isOpen, onClose, onViewUserProfile, postId,
       }
     } catch (error) {
       console.error('Error sharing post:', error);
-      alert('Failed to share post. Please try again.');
+      toast.error('Failed to share post. Please try again.');
     } finally {
       setIsSharing(false);
     }

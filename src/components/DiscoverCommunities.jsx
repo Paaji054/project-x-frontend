@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, Key } from "lucide-react";
 import { communityService } from "../services/communityService";
+import { toast } from "react-hot-toast";
 import LiveProfilePhoto from "./LiveProfilePhoto";
 import { getCommunityProfileVideoUrl } from "../utils/communityVideos";
 import { DISCOVERY_CATEGORIES } from "../constants/communityCategories";
@@ -111,7 +112,7 @@ export default function DiscoverCommunities({ onBack }) {
         setCodeInput("");
         
         // Show success message
-        alert("Successfully joined the community!");
+        toast.success("Successfully joined the community!");
         
         // Refresh communities list
         await fetchCommunities();

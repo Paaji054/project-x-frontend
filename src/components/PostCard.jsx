@@ -6,6 +6,7 @@ import messageIcon from "../assets/message.svg";
 import LiveProfilePhoto from "./LiveProfilePhoto";
 import { getProfileVideoUrl } from "../utils/profileVideos";
 import { postService } from "../services";
+import { toast } from "react-hot-toast";
 
 export default function PostCard({ 
   variant = "grid", 
@@ -54,6 +55,7 @@ export default function PostCard({
       }
     } catch (err) {
       console.error("Error toggling like:", err);
+      toast.error("Failed to like post");
       // Revert on error
       setLiked(previousLiked);
       setLikes(previousLikes);

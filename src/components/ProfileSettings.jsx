@@ -225,7 +225,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
             }
           } catch (err) {
             console.error("Error uploading photo:", err);
-            alert("Failed to upload photo. Please try again.");
+            toast.error("Failed to upload photo. Please try again.");
           } finally {
             setUploadingPhoto(false);
           }
@@ -236,7 +236,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
         setUploadingPhoto(false);
       }
     } else {
-      alert("Please select a valid image file.");
+      toast.error("Please select a valid image file.");
     }
     // Reset input so same file can be selected again
     e.target.value = '';
@@ -247,7 +247,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
     if (file && file.type.startsWith('video/')) {
       // Check file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
-        alert("Video file size should be less than 10MB.");
+        toast.error("Video file size should be less than 10MB.");
         e.target.value = '';
         return;
       }
@@ -269,7 +269,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
             }
           } catch (err) {
             console.error("Error uploading video:", err);
-            alert("Failed to upload video. Please try again.");
+            toast.error("Failed to upload video. Please try again.");
           } finally {
             setUploadingVideo(false);
           }
@@ -280,7 +280,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
         setUploadingVideo(false);
       }
     } else {
-      alert("Please select a valid video file.");
+      toast.error("Please select a valid video file.");
     }
     // Reset input so same file can be selected again
     e.target.value = '';

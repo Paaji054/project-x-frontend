@@ -36,7 +36,10 @@ export const aiService = {
    */
   async generateCaption(imageUrl, context = '') {
     try {
-      const response = await api.post(API_ENDPOINTS.AI.GENERATE_CAPTION, { imageUrl, context });
+      const payload = {};
+      if (imageUrl) payload.imageUrl = imageUrl;
+      if (context) payload.context = context;
+      const response = await api.post(API_ENDPOINTS.AI.GENERATE_CAPTION, payload);
       return response.success ? response.data : null;
     } catch (error) {
       console.error('Generate caption error:', error);
@@ -66,7 +69,10 @@ export const aiService = {
    */
   async generateTheme(mood = '', baseColor = '') {
     try {
-      const response = await api.post(API_ENDPOINTS.AI.GENERATE_THEME, { mood, baseColor });
+      const payload = {};
+      if (mood) payload.mood = mood;
+      if (baseColor) payload.baseColor = baseColor;
+      const response = await api.post(API_ENDPOINTS.AI.GENERATE_THEME, payload);
       return response.success ? response.data : null;
     } catch (error) {
       console.error('Generate theme error:', error);

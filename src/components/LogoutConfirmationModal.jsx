@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { authService } from "../services/authService";
+import { toast } from "react-hot-toast";
 
 export default function LogoutConfirmationModal({ isOpen, onClose, onConfirm }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -21,6 +22,7 @@ export default function LogoutConfirmationModal({ isOpen, onClose, onConfirm }) 
       window.location.href = '/login';
     } catch (error) {
       console.error('Logout failed:', error);
+      toast.error('Logout failed, redirecting anyway...');
       // Still close and redirect even if API fails
       onClose();
       window.location.href = '/login';

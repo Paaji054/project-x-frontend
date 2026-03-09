@@ -7,6 +7,7 @@ import themeIcon from "../../assets/theme.svg";
 import catTheme from "../../assets/cat_theme.jpg";
 import xoxoTheme from "../../assets/xoxo_theme.jpg";
 import { messageService, userService, socketService, postService } from "../../services";
+import { toast } from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
 import { tokenManager } from "../../utils/httpClient";
 import { useDebounce } from "../../hooks/useDebounce";
@@ -333,14 +334,14 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
       // First, fetch user ID by username
       const userResponse = await userService.getUserByUsername(username);
       if (!userResponse || !userResponse.user) {
-        alert("User not found");
+        toast.error("User not found");
         return;
       }
       const user = userResponse.user;
       // Backend expects userId (uid), not username
       const userId = user.uid || user._id || user.id;
       if (!userId) {
-        alert("Unable to start conversation");
+        toast.error("Unable to start conversation");
         return;
       }
       const newConvo = await messageService.createConversation(userId);
@@ -351,7 +352,7 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
       }
     } catch (err) {
       console.error("Error creating conversation:", err);
-      alert("Failed to start conversation. Please try again.");
+      toast.error("Failed to start conversation. Please try again.");
     }
   };
 
@@ -424,7 +425,7 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
       // Remove optimistic message on error
       setMessages(messages.filter(msg => msg.id !== tempMessage.id));
       setMessageInput(messageText); // Restore message
-      alert("Failed to send message. Please try again.");
+      toast.error("Failed to send message. Please try again.");
     } finally {
       setSendingMessage(false);
     }

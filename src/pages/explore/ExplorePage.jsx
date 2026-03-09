@@ -7,6 +7,7 @@ import Filters from "../../components/Filters";
 import Accounts from "../../components/Accounts";
 import Comments from "../../components/Comments";
 import { searchService, postService } from "../../services";
+import { toast } from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
 
 export default function ExplorePage({ onViewUserProfile }) {
@@ -126,6 +127,7 @@ export default function ExplorePage({ onViewUserProfile }) {
         }));
       } catch (err) {
         console.error("Error fetching comments:", err);
+        toast.error("Failed to load comments");
         setPostsComments((prev) => ({
           ...prev,
           [postId]: []
@@ -208,6 +210,7 @@ export default function ExplorePage({ onViewUserProfile }) {
       }
     } catch (err) {
       console.error("Error liking comment:", err);
+      toast.error("Failed to like comment");
       // Revert on error - refetch comments
       try {
         const response = await postService.getPostComments(activePostId);
@@ -217,6 +220,7 @@ export default function ExplorePage({ onViewUserProfile }) {
         }));
       } catch (refetchErr) {
         console.error("Error refetching comments:", refetchErr);
+        toast.error("Failed to refresh comments");
       }
     }
   };

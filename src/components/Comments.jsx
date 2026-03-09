@@ -7,6 +7,7 @@ import { getProfileVideoUrl } from "../utils/profileVideos";
 import { formatDistanceToNow } from "date-fns";
 import ReportModal from "./ReportModal";
 import { postService } from "../services/postService";
+import { toast } from "react-hot-toast";
 
 export default function Comments({ isOpen, onClose, variant = "sidebar", initialComments = [], onViewUserProfile, onAddComment, onLikeComment, onDeleteComment, currentUserId, postId, postOwnerId }) {
   const [newComment, setNewComment] = useState("");
@@ -52,6 +53,7 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
         // The parent will update initialComments which triggers useEffect
       } catch (error) {
         console.error('Error liking comment:', error);
+        toast.error('Failed to like comment');
         // Revert on error - restore from initialComments
         setComments(initialComments);
       }
@@ -83,7 +85,7 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
       setComments((prev) => prev.filter((c) => (c._id || c.id) !== commentId));
     } catch (err) {
       console.error("Error deleting comment:", err);
-      alert("Failed to delete comment. Please try again.");
+      toast.error("Failed to delete comment. Please try again.");
     } finally {
       setDeletingCommentId(null);
     }
@@ -100,6 +102,7 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
       setExpandedReplies(prev => ({ ...prev, [commentId]: true }));
     } catch (err) {
       console.error('Error loading replies:', err);
+      toast.error('Failed to load replies');
     }
   };
 
@@ -119,6 +122,7 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
       setOpenMenuCommentId(null);
     } catch (err) {
       console.error('Error pinning comment:', err);
+      toast.error('Failed to pin comment');
     }
   };
 
@@ -171,7 +175,7 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
       console.error("Error sending comment:", err);
       // Restore the comment text on error
       setNewComment(commentText);
-      alert("Failed to post comment. Please try again.");
+      toast.error("Failed to post comment. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

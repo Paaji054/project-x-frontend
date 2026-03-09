@@ -5,6 +5,7 @@ import ShareModal from "./ShareModal";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import { storyService } from "../services/storyService";
 import { messageService } from "../services/messageService";
+import { toast } from "react-hot-toast";
 
 export default function StoryViewer({ stories, initialIndex, onClose, onStoryViewed, currentUserId, onStoryDeleted }) {
   const [currentStoryIndex, setCurrentStoryIndex] = useState(initialIndex);
@@ -162,9 +163,10 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
 
       await messageService.sendMessage(conversationId, storyOwnerId, text);
       setReplyText("");
+      toast.success("Reply sent!");
     } catch (err) {
       console.error("Failed to send story reply:", err);
-      alert("Failed to send message. Please try again.");
+      toast.error("Failed to send message. Please try again.");
     } finally {
       setIsSendingReply(false);
     }
@@ -181,7 +183,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
       onClose();
     } catch (err) {
       console.error("Failed to delete story:", err);
-      alert("Failed to delete story. Please try again.");
+      toast.error("Failed to delete story. Please try again.");
       throw err; // rethrow so DeleteConfirmationModal keeps modal open
     } finally {
       setIsDeleting(false);
