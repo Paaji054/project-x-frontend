@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import LiveProfilePhoto from "./LiveProfilePhoto";
 import { getProfileVideoUrl } from "../utils/profileVideos";
 import { postService, messageService, userService } from "../services";
+import { toast } from "react-hot-toast";
 
 export default function ShareModal({ isOpen, onClose, onViewUserProfile, postId, postUrl }) {
   const navigate = useNavigate();
@@ -82,17 +83,18 @@ export default function ShareModal({ isOpen, onClose, onViewUserProfile, postId,
           }
           
           if (conversationId && friend.userId) {
-            // Send message with shared post
-            const shareText = postUrl 
-              ? `Check out this post: ${postUrl}`
+            // Send message with shared post as post_share type
+            const shareText = postId
+              ? `Shared a post with you`
               : `Shared a post with you!`;
             
             await messageService.sendMessage(
               conversationId,
               friend.userId,
               shareText,
-              postUrl,
-              postUrl ? 'image' : 'text'
+              postUrl || null,
+              postId ? 'post_share' : 'text',
+              postId || null
             );
           }
         } catch (err) {
@@ -117,7 +119,7 @@ export default function ShareModal({ isOpen, onClose, onViewUserProfile, postId,
       }
     } catch (error) {
       console.error('Error sharing post:', error);
-      alert('Failed to share post. Please try again.');
+      toast.error('Failed to share post. Please try again.');
     } finally {
       setIsSharing(false);
     }

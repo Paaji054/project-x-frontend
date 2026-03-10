@@ -10,6 +10,7 @@ import LiveProfilePhoto from "./LiveProfilePhoto";
 import { getProfileVideoUrl } from "../utils/profileVideos";
 import { postService } from "../services/postService";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { toast } from "react-hot-toast";
 
 export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfile, currentUserId, onPostDeleted }) {
   const [liked, setLiked] = useState(post?.isLiked || post?.liked || false);
@@ -126,6 +127,7 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
       }
     } catch (error) {
       console.error('Error liking post:', error);
+      toast.error('Failed to like post');
       // Revert on error
       setLiked(!liked);
       setLikes(liked ? likes + 1 : likes - 1);
@@ -158,6 +160,7 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
       }
     } catch (error) {
       console.error('Error liking comment:', error);
+      toast.error('Failed to like comment');
       // Revert on error
       fetchComments();
     }
@@ -202,7 +205,7 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
     } catch (error) {
       console.error('Error adding comment:', error);
       setNewComment(commentText);
-      alert('Failed to add comment. Please try again.');
+      toast.error('Failed to add comment. Please try again.');
     }
   };
 
@@ -223,6 +226,7 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
       fetchComments();
     } catch (error) {
       console.error('Error pinning comment:', error);
+      toast.error('Failed to pin comment');
     }
   };
 
@@ -250,6 +254,7 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
       setExpandedReplies(prev => ({ ...prev, [commentId]: true }));
     } catch (error) {
       console.error('Error loading replies:', error);
+      toast.error('Failed to load replies');
     }
   };
 
@@ -263,7 +268,7 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
       onClose();
     } catch (err) {
       console.error("Failed to delete post:", err);
-      alert("Failed to delete post. Please try again.");
+      toast.error("Failed to delete post. Please try again.");
       throw err; // rethrow so DeleteConfirmationModal stays open
     } finally {
       setIsDeletingPost(false);
@@ -279,7 +284,7 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
       setComments((prev) => prev.filter((c) => (c._id || c.id) !== commentId));
     } catch (err) {
       console.error("Failed to delete comment:", err);
-      alert("Failed to delete comment. Please try again.");
+      toast.error("Failed to delete comment. Please try again.");
     } finally {
       setDeletingCommentId(null);
     }

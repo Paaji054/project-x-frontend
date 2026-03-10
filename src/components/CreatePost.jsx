@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ChevronDown, ChevronUp, MapPin, UserPlus, Smile, X, Music, Type, Filter, Edit3, Crop, Sun, Contrast, Droplet, Thermometer, Circle, Navigation, Loader2, Check, Palette } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, MapPin, UserPlus, Smile, X, Music, Type, Filter, Edit3, Crop, Sun, Contrast, Droplet, Thermometer, Circle, Navigation, Loader2, Check, Palette, Sparkles } from "lucide-react";
 import EmojiPickerReact from 'emoji-picker-react';
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useAuth } from "../context/AuthContext";
@@ -8,6 +8,8 @@ import uploadIcon from "../assets/upload.svg";
 import { uploadService } from "../services/uploadService";
 import { postService } from "../services/postService";
 import { userService } from "../services/userService";
+import { aiService } from "../services/aiService";
+import { toast } from "react-hot-toast";
 import { useDebounce } from "../hooks/useDebounce";
 
 export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreated, communityId }) {
@@ -929,6 +931,25 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
     });
   };
 
+  // AI caption generation
+  const [isGeneratingCaption, setIsGeneratingCaption] = useState(false);
+  const handleGenerateCaption = async () => {
+    try {
+      setIsGeneratingCaption(true);
+      const context = category !== 'general' ? `A ${category} post` : '';
+      const result = await aiService.generateCaption(null, context);
+      if (result?.caption) {
+        setCaption(result.caption.slice(0, 2200));
+        toast.success('Caption generated!');
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.error?.message || err?.message || 'Failed to generate caption';
+      toast.error(msg);
+    } finally {
+      setIsGeneratingCaption(false);
+    }
+  };
+
   // Mock gallery images for mobile
   const galleryImages = Array.from({ length: 20 }).map((_, i) => ({
     id: i,
@@ -1277,12 +1298,12 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.2 }}
-          className={`relative bg-[#0f0f0f] rounded-lg shadow-2xl ${step === "final" ? "overflow-visible" : "overflow-hidden"} max-w-5xl w-full max-h-[90vh] flex flex-col border border-gray-800`}
+          className={`relative bg-[#0f0f0f] rounded-lg shadow-2xl overflow-hidden max-w-5xl w-full max-h-[90vh] flex flex-col border border-gray-800`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Step 1: Upload */}
           {step === "upload" && (
-            <div className="flex flex-col items-center justify-center p-12 min-h-[600px]">
+            <div className="flex flex-col items-center justify-center p-12 flex-1">
               <h2 className="text-xl font-semibold mb-8 text-white">Create new post</h2>
 
               <div
@@ -1370,8 +1391,8 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                       width: 'min(600px, calc(100vw - 400px))',
                       maxHeight: 'calc(100vh - 200px)',
                       aspectRatio: displayAspectRatio,
-                      minWidth: '300px',
-                      minHeight: '300px'
+                      minWidth: '200px',
+                      minHeight: '200px'
                     }}
                   >
                     {/* Grid lines - constrained to crop area */}
@@ -1489,9 +1510,9 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
               </div>
 
               {/* Edit Content */}
-              <div className="flex-1 flex">
+              <div className="flex-1 flex min-h-0">
                 {/* Image Preview */}
-                <div className="flex-1 bg-black flex items-center justify-center p-8 relative">
+                <div className="flex-1 bg-black flex items-center justify-center p-4 relative">
                   <img
                     src={croppedImage || imagePreview}
                     alt="Edit preview"
@@ -1628,7 +1649,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
               </div>
 
               {/* Final Content */}
-              <div className="flex-1 flex overflow-hidden relative">
+              <div className="flex-1 flex overflow-hidden relative min-h-0">
                 {/* Image Preview */}
                 <div className="flex-1 bg-black flex items-center justify-center relative">
                   <img
@@ -1658,7 +1679,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                 </div>
 
                 {/* Settings Sidebar */}
-                <div className="w-72 lg:w-96 bg-[#1a1a1a] border-l border-gray-800 flex flex-col overflow-visible relative">
+                <div className="w-72 lg:w-96 bg-[#1a1a1a] border-l border-gray-800 flex flex-col overflow-hidden relative">
                   {/* User Profile */}
                   <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800">
                     <img
@@ -1670,9 +1691,9 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                   </div>
 
                   {/* Scrollable Content */}
-                  <div className="flex-1 overflow-y-auto overflow-x-visible relative" style={{ overflow: 'visible' }}>
+                  <div className="flex-1 overflow-y-auto relative">
                     {/* Caption */}
-                    <div className="px-4 py-3 border-b border-gray-800 relative" style={{ overflow: 'visible' }}>
+                    <div className="px-4 py-3 border-b border-gray-800 relative">
                       <textarea
                         placeholder="Write a caption..."
                         value={caption}
@@ -1682,11 +1703,12 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                         maxLength={2200}
                       />
                       <div className="flex items-center justify-between mt-2">
-                        <div className="relative overflow-visible" ref={emojiPickerRef}>
-                          <Smile
-                            className="w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-300"
-                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                          />
+                        <div className="flex items-center gap-3">
+                          <div className="relative" ref={emojiPickerRef}>
+                            <Smile
+                              className="w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-300"
+                              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            />
                           {showEmojiPicker && (
                             <AnimatePresence>
                               <motion.div
@@ -1716,6 +1738,21 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                               </motion.div>
                             </AnimatePresence>
                           )}
+                        </div>
+                          <button
+                            type="button"
+                            onClick={handleGenerateCaption}
+                            disabled={isGeneratingCaption}
+                            className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors disabled:opacity-50"
+                            title="Generate AI caption"
+                          >
+                            {isGeneratingCaption ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-4 h-4" />
+                            )}
+                            <span>AI Caption</span>
+                          </button>
                         </div>
                         <span className={`text-xs ${caption.length >= 2200 ? 'text-red-400' : 'text-gray-400'}`}>
                           {caption.length}/2,200
@@ -2261,7 +2298,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
       </div>
 
       {/* Mobile Version */}
-      <div className="md:hidden fixed inset-0 z-[100] bg-black">
+      <div className="md:hidden fixed inset-0 z-[100] bg-black" style={{ height: '100dvh' }}>
         <AnimatePresence mode="wait">
           {/* Mobile Step 1: Gallery */}
           {mobileStep === "gallery" && (
@@ -2307,7 +2344,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
 
               {/* Preview */}
               {(selectedGalleryImage || imagePreview) && (
-                <div className="w-full h-64 bg-black flex items-center justify-center border-b border-gray-800">
+                <div className="w-full aspect-square max-h-[45vh] bg-black flex items-center justify-center border-b border-gray-800">
                   <img
                     src={imagePreview || selectedGalleryImage?.url}
                     alt="Preview"
@@ -2963,7 +3000,6 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
               exit={{ opacity: 0, x: -100 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
               className="h-full flex flex-col bg-black"
-              style={{ overflow: 'visible' }}
             >
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
@@ -2999,9 +3035,9 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
               </div>
 
               {/* Options */}
-              <div className="flex-1 bg-black relative" style={{ overflowY: 'auto', overflowX: 'visible' }}>
+              <div className="flex-1 bg-black relative overflow-y-auto">
                 {/* Caption */}
-                <div className="px-4 py-3 border-b border-gray-800 relative" style={{ overflow: 'visible' }}>
+                <div className="px-4 py-3 border-b border-gray-800 relative">
                   <textarea
                     placeholder="Add a caption..."
                     value={caption}
@@ -3011,11 +3047,12 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                     maxLength={2200}
                   />
                   <div className="flex items-center justify-between mt-2">
-                    <div className="relative" ref={emojiPickerRef} style={{ overflow: 'visible', zIndex: 200 }}>
-                      <Smile
-                        className="w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-300"
-                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                      />
+                    <div className="flex items-center gap-3">
+                      <div className="relative z-[200]" ref={emojiPickerRef}>
+                        <Smile
+                          className="w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-300"
+                          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                        />
                       <AnimatePresence>
                         {showEmojiPicker && (
                           <motion.div
@@ -3050,6 +3087,21 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                           </motion.div>
                         )}
                       </AnimatePresence>
+                    </div>
+                      <button
+                        type="button"
+                        onClick={handleGenerateCaption}
+                        disabled={isGeneratingCaption}
+                        className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors disabled:opacity-50"
+                        title="Generate AI caption"
+                      >
+                        {isGeneratingCaption ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="w-4 h-4" />
+                        )}
+                        <span>AI Caption</span>
+                      </button>
                     </div>
                     <span className={`text-xs ${caption.length >= 2200 ? 'text-red-400' : 'text-gray-400'}`}>
                       {caption.length}/2,200

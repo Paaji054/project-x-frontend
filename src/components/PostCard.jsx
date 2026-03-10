@@ -6,6 +6,7 @@ import messageIcon from "../assets/message.svg";
 import LiveProfilePhoto from "./LiveProfilePhoto";
 import { getProfileVideoUrl } from "../utils/profileVideos";
 import { postService } from "../services";
+import { toast } from "react-hot-toast";
 
 export default function PostCard({ 
   variant = "grid", 
@@ -54,6 +55,7 @@ export default function PostCard({
       }
     } catch (err) {
       console.error("Error toggling like:", err);
+      toast.error("Failed to like post");
       // Revert on error
       setLiked(previousLiked);
       setLikes(previousLikes);
@@ -160,7 +162,7 @@ export default function PostCard({
         </div>
 
         {/* Share Modal */}
-        <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} onViewUserProfile={onViewUserProfile} />
+        <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} onViewUserProfile={onViewUserProfile} postId={postData._id || postData.id || postId} postUrl={postImage} />
       </>
     );
   }
@@ -230,7 +232,7 @@ export default function PostCard({
       </div>
 
       {/* Share Modal */}
-      <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} />
+      <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} postId={postData._id || postData.id || postId} postUrl={postImage} />
     </>
   );
 }

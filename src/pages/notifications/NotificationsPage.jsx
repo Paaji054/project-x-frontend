@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import LiveProfilePhoto from "../../components/LiveProfilePhoto";
 import { getProfileVideoUrl } from "../../utils/profileVideos";
 import { notificationService, userService } from "../../services";
+import { toast } from "react-hot-toast";
 
 function NotificationsPage({ onViewUserProfile }) {
   const navigate = useNavigate();
@@ -103,6 +104,7 @@ function NotificationsPage({ onViewUserProfile }) {
         });
       } catch (err) {
         console.error("Error dismissing notification:", err);
+        toast.error("Failed to dismiss notification");
       }
       return;
     }
@@ -146,6 +148,7 @@ function NotificationsPage({ onViewUserProfile }) {
       await notificationService.markAsRead(notificationId);
     } catch (err) {
       console.error("Error handling notification action:", err);
+      toast.error("Failed to update follow status");
       // Revert optimistic update on error
       fetchNotifications();
     }

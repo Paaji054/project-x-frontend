@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Key } from "lucide-react";
 import { communityService } from "../services/communityService";
+import { toast } from "react-hot-toast";
 import LiveBanner from "./LiveBanner";
 import LiveProfilePhoto from "./LiveProfilePhoto";
 import { getCommunityBannerVideoUrl, getCommunityProfileVideoUrl } from "../utils/communityVideos";
@@ -58,6 +59,7 @@ export default function JoinedCommunities({ onDiscoverClick }) {
       await communityService.leaveCommunity(communityId);
     } catch (err) {
       console.error('Error leaving community:', err);
+      toast.error('Failed to leave community');
       // Revert on error
       fetchJoinedCommunities();
     }

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Flag } from "lucide-react";
 import { reportService } from "../services/reportService";
+import { toast } from "react-hot-toast";
 
 const REPORT_REASONS = [
   { value: "spam", label: "Spam" },
@@ -30,6 +31,7 @@ export default function ReportModal({ isOpen, onClose, targetType, targetId }) {
       setError("");
       await reportService.reportContent(targetType, targetId, reason, description);
       setSubmitted(true);
+      toast.success("Report submitted successfully");
       setTimeout(() => {
         onClose();
         setSubmitted(false);

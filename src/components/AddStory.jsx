@@ -224,31 +224,31 @@ export default function AddStory() {
 
   // Edit step - show editing interface
   return (
-    <div className="min-h-screen w-full bg-black relative">
-      {/* Close Button */}
-      <button
-        onClick={handleClose}
-        className="absolute top-4 left-4 z-50 p-2 bg-black/50 hover:bg-black/70 rounded-full transition backdrop-blur-sm"
-      >
-        <X className="w-6 h-6 text-white" />
-      </button>
-
-      {/* Share Button */}
-      <button
-        onClick={handleShare}
-        disabled={isUploading}
-        className="absolute top-4 right-4 z-50 px-4 py-2 bg-primary hover:bg-primary-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-full text-white font-medium transition flex items-center gap-2"
-      >
-        {isUploading && <Loader2 className="w-4 h-4 animate-spin" />}
-        {isUploading ? 'Sharing...' : 'Share'}
-      </button>
+    <div className="fixed inset-0 w-full bg-black flex flex-col" style={{ height: '100dvh' }}>
+      {/* Header with Close & Share */}
+      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0 z-50">
+        <button
+          onClick={handleClose}
+          className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition"
+        >
+          <X className="w-6 h-6 text-white" />
+        </button>
+        <button
+          onClick={handleShare}
+          disabled={isUploading}
+          className="px-5 py-2 bg-primary hover:bg-primary-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-full text-white font-medium transition flex items-center gap-2"
+        >
+          {isUploading && <Loader2 className="w-4 h-4 animate-spin" />}
+          {isUploading ? 'Sharing...' : 'Share'}
+        </button>
+      </div>
 
       {/* Image Preview with Filter */}
-      <div className="w-full h-screen flex items-center justify-center bg-black relative">
+      <div className="flex-1 min-h-0 flex items-center justify-center bg-black relative overflow-hidden">
         <img
           src={imagePreview}
           alt="Story preview"
-          className={`w-full h-full object-contain ${getFilterClass(filter)}`}
+          className={`max-w-full max-h-full object-contain ${getFilterClass(filter)}`}
         />
 
         {/* Text Overlay */}
@@ -265,7 +265,7 @@ export default function AddStory() {
       </div>
 
       {/* Editing Tools */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent pb-4">
+      <div className="flex-shrink-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent pb-[max(1rem,env(safe-area-inset-bottom))]">
         {/* Tool Icons */}
         <div className="flex items-center justify-center gap-4 px-4 py-3">
           {/* Text Tool */}
