@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import LiveProfilePhoto from "../../components/LiveProfilePhoto";
 import { useUserProfile } from "../../hooks/useUserProfile";
 import { creditsService, userService } from "../../services";
+import { toast } from "react-hot-toast";
 import { FiPackage, FiClock, FiCheck } from "react-icons/fi";
 
 export default function ShopPage() {
@@ -60,10 +61,10 @@ export default function ShopPage() {
                 paymentId: response.razorpay_payment_id,
                 signature: response.razorpay_signature
               });
-              alert('Purchase successful!');
+              toast.success('Purchase successful!');
               loadData();
             } catch (err) {
-              alert('Payment verification failed');
+              toast.error('Payment verification failed');
             }
           },
           prefill: {
@@ -79,7 +80,7 @@ export default function ShopPage() {
         razorpay.open();
       }
     } catch (error) {
-      alert('Failed to create order: ' + error.message);
+      toast.error('Failed to create order: ' + error.message);
     } finally {
       setLoading(false);
     }

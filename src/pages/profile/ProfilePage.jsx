@@ -11,6 +11,7 @@ import { useUserProfile } from "../../hooks/useUserProfile";
 import { getProfileVideoUrl } from "../../utils/profileVideos";
 import { useAuth } from "../../context/AuthContext";
 import { userService, postService } from "../../services";
+import { toast } from "react-hot-toast";
 
 export default function ProfilePage({ onLogout, onViewUserProfile }) {
   const [selectedPost, setSelectedPost] = useState(null);
@@ -199,7 +200,7 @@ const fetchProfileData = async () => {
   const handleFollow = async (userId, targetUsername) => {
     if (!userId) {
       console.error("User ID is required to follow");
-      alert("Unable to follow user. Missing user information.");
+      toast.error("Unable to follow user. Missing user information.");
       return;
     }
 
@@ -217,14 +218,14 @@ const fetchProfileData = async () => {
       window.dispatchEvent(new CustomEvent('followUpdated'));
     } catch (err) {
       console.error("Error following user:", err);
-      alert(err.message || "Failed to follow user. Please try again.");
+      toast.error(err.message || "Failed to follow user. Please try again.");
     }
   };
 
   const handleUnfollow = async (userId, targetUsername) => {
     if (!userId) {
       console.error("User ID is required to unfollow");
-      alert("Unable to unfollow user. Missing user information.");
+      toast.error("Unable to unfollow user. Missing user information.");
       return;
     }
 
@@ -242,7 +243,7 @@ const fetchProfileData = async () => {
       window.dispatchEvent(new CustomEvent('followUpdated'));
     } catch (err) {
       console.error("Error unfollowing user:", err);
-      alert(err.message || "Failed to unfollow user. Please try again.");
+      toast.error(err.message || "Failed to unfollow user. Please try again.");
     }
   };
 

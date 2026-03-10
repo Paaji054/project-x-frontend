@@ -1,6 +1,6 @@
 // Normal icons
 import { NavLink } from "react-router-dom";
-import { FiBarChart2 } from "react-icons/fi";
+import { FiBarChart2, FiZap } from "react-icons/fi";
 import React, { useState, useEffect } from "react";
 import homeIcon from "../../assets/home.svg";
 import exploreIcon from "../../assets/explore.svg";
@@ -70,6 +70,7 @@ export default function Sidebar({ onLogout }) {
     { label: "Communities", value: "/communities", icon: communitiesIcon },
     { label: "Messages", value: "/messages", icon: messageIcon },
     { label: "Analytics", value: "/analytics", icon: null, isReactIcon: true },
+    { label: "AI Tools", value: "/ai-tools", icon: null, isReactIcon: true, reactIcon: FiZap },
     { label: "Profile", value: "/profile", icon: profileIcon },
   ];
 
@@ -140,7 +141,10 @@ export default function Sidebar({ onLogout }) {
               {({ isActive }) => (
                 <span className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-white dark:bg-[#0f0f0f]">
                   {item.isReactIcon ? (
-                    <FiBarChart2 className="h-5 w-5 text-black dark:text-white" />
+                    (() => {
+                      const IconComponent = item.reactIcon || FiBarChart2;
+                      return <IconComponent className="h-5 w-5 text-black dark:text-white" />;
+                    })()
                   ) : (
                     <img src={item.icon} className="h-5 w-5 invert dark:invert-0" alt={item.label} />
                   )}

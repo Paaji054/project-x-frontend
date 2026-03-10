@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Send, Edit, X, Search, Loader2 } from "lucide-react";
 import LiveProfilePhoto from "../../components/LiveProfilePhoto";
 import { getProfileVideoUrl } from "../../utils/profileVideos";
+import PostDetailModal from "../../components/PostDetailModal";
 import themeIcon from "../../assets/theme.svg";
 import catTheme from "../../assets/cat_theme.jpg";
 import xoxoTheme from "../../assets/xoxo_theme.jpg";
-import { messageService, userService, socketService } from "../../services";
+import { messageService, userService, socketService, postService } from "../../services";
+import { toast } from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
 import { tokenManager } from "../../utils/httpClient";
 import { useDebounce } from "../../hooks/useDebounce";
@@ -72,6 +74,7 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
         isRead: !!msg.readAt,
         type: msg.type || 'text',
         mediaUrl: msg.mediaUrl,
+        sharedPostId: msg.sharedPostId || null,
       };
       setMessages((prev) => {
         if (prev.some((m) => String(m.id) === String(newMsg.id))) return prev;
@@ -97,6 +100,8 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
   // People you can start a chat with (followers you also follow)
   const [chatContacts, setChatContacts] = useState([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
+  // Shared post preview modal state
+  const [sharedPostData, setSharedPostData] = useState(null);
   
   // Read receipt settings - load from localStorage
   const [readReceiptsEnabled, setReadReceiptsEnabled] = useState(() => {
@@ -271,8 +276,9 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
           : null,
         isDelivered: !!msg.deliveredAt,
         isRead: !!msg.readAt,
-        type: msg.type || 'text', // Message type: text, image, video, voice
+        type: msg.type || 'text', // Message type: text, image, video, voice, post_share
         mediaUrl: msg.mediaUrl, // Media URL if present
+        sharedPostId: msg.sharedPostId || null, // Shared post ID for post_share messages
       }));
       
       setMessages(transformedMsgs);
@@ -284,6 +290,19 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
       setMessages([]);
     } finally {
       setLoadingMessages(false);
+    }
+  };
+
+  // Open shared post in PostDetailModal
+  const handleOpenSharedPost = async (postId) => {
+    if (!postId) return;
+    try {
+      const data = await postService.getPostById(postId);
+      if (data?.post || data) {
+        setSharedPostData(data.post || data);
+      }
+    } catch (err) {
+      console.error('Error loading shared post:', err);
     }
   };
 
@@ -315,14 +334,14 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
       // First, fetch user ID by username
       const userResponse = await userService.getUserByUsername(username);
       if (!userResponse || !userResponse.user) {
-        alert("User not found");
+        toast.error("User not found");
         return;
       }
       const user = userResponse.user;
       // Backend expects userId (uid), not username
       const userId = user.uid || user._id || user.id;
       if (!userId) {
-        alert("Unable to start conversation");
+        toast.error("Unable to start conversation");
         return;
       }
       const newConvo = await messageService.createConversation(userId);
@@ -333,7 +352,7 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
       }
     } catch (err) {
       console.error("Error creating conversation:", err);
-      alert("Failed to start conversation. Please try again.");
+      toast.error("Failed to start conversation. Please try again.");
     }
   };
 
@@ -406,15 +425,15 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
       // Remove optimistic message on error
       setMessages(messages.filter(msg => msg.id !== tempMessage.id));
       setMessageInput(messageText); // Restore message
-      alert("Failed to send message. Please try again.");
+      toast.error("Failed to send message. Please try again.");
     } finally {
       setSendingMessage(false);
     }
   };
 
   const handleSelectTheme = (key) => {
-    if (!activeChat) return;
-    const chatKey = activeChat.id || activeChat.username;
+    if (!activeChat?._id) return;
+    const chatKey = activeChat._id;
     const updatedThemes = { ...chatThemes, [chatKey]: key };
     setChatThemes(updatedThemes);
     // Save to localStorage
@@ -452,7 +471,7 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
     setActiveChat(null);
   };
 
-  const activeChatKey = activeChat?.id || activeChat?.username;
+  const activeChatKey = activeChat?._id;
   const currentTheme = activeChatKey ? chatThemes[activeChatKey] || "default" : "default";
 
   return (
@@ -686,9 +705,16 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
                   <img src={themeIcon} alt="theme" className="w-5 h-5 dark:invert" />
               </button>
                 {showThemePicker && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-[#0f0f0f] border border-black dark:border-gray-800 rounded-xl shadow-2xl p-3 z-20">
+                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#0f0f0f] border border-black dark:border-gray-800 rounded-xl shadow-2xl p-3 z-20">
                     <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">Chat themes</p>
                     <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => handleSelectTheme("default")}
+                        className={`w-14 h-14 rounded-full border-2 overflow-hidden flex-shrink-0 flex items-center justify-center ${currentTheme === "default" ? "border-primary bg-primary/20" : "border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800"}`}
+                        aria-label="Default theme"
+                      >
+                        <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300">Default</span>
+                      </button>
                       <button
                         onClick={() => handleSelectTheme("cat")}
                         className={`w-14 h-14 rounded-full border-2 overflow-hidden flex-shrink-0 ${currentTheme === "cat" ? "border-primary" : "border-gray-300 dark:border-gray-700"}`}
@@ -723,12 +749,42 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
                     const senderMessages = messages.filter(msg => msg.sender === 'sender');
                     const lastSenderMessage = senderMessages[senderMessages.length - 1];
                     const isLastSenderMessage = message.id === lastSenderMessage?.id;
+                    const isPostShare = message.type === 'post_share' || (message.sharedPostId);
                     
                     return (
                 <div
                   key={message.id}
                         className={`flex flex-col ${message.sender === 'sender' ? 'items-end' : 'items-start'}`}
                 >
+                  {isPostShare ? (
+                    /* Shared Post Card - Instagram-style */
+                    <button
+                      onClick={() => handleOpenSharedPost(message.sharedPostId)}
+                      className={`max-w-[75%] md:max-w-[60%] rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition-opacity ${message.sender === 'sender'
+                        ? themes[currentTheme]?.senderBubble || themes.default.senderBubble
+                        : themes[currentTheme]?.receiverBubble || themes.default.receiverBubble
+                      }`}
+                    >
+                      {message.mediaUrl && (
+                        <div className="w-full aspect-square max-w-[240px] bg-gray-100 dark:bg-gray-900">
+                          <img
+                            src={message.mediaUrl}
+                            alt="Shared post"
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
+                      <div className="px-3 py-2 flex items-center gap-2">
+                        <svg className="w-4 h-4 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span className="text-xs font-medium">
+                          {message.text || 'Shared a post'}
+                        </span>
+                      </div>
+                    </button>
+                  ) : (
                   <div
                           className={`max-w-[75%] md:max-w-[60%] rounded-2xl px-4 py-2 ${message.sender === 'sender'
                             ? themes[currentTheme]?.senderBubble || themes.default.senderBubble
@@ -737,6 +793,7 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
                   >
                     <p className="text-sm md:text-base">{message.text}</p>
                   </div>
+                  )}
                         {/* Read Receipts - Only show on the last sender message and if read receipts are enabled */}
                         {message.sender === 'sender' && isLastSenderMessage && readReceiptsEnabled && (
                           <div className="mt-1 px-1">
@@ -870,6 +927,15 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
           </div>
         </div>
       )}
+
+      {/* Shared Post Detail Modal */}
+      <PostDetailModal
+        isOpen={!!sharedPostData}
+        onClose={() => setSharedPostData(null)}
+        post={sharedPostData}
+        onViewUserProfile={onViewUserProfile}
+        currentUserId={currentUserId}
+      />
     </main>
   );
 }

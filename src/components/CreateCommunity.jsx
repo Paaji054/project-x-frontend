@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Globe, Lock, Upload } from "lucide-react";
+import { ArrowLeft, Globe, Lock, Upload, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { communityService } from "../services/communityService";
+import { aiService } from "../services/aiService";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { COMMUNITY_CATEGORIES } from "../constants/communityCategories";
 
@@ -21,6 +22,31 @@ export default function CreateCommunity({ setActiveView }) {
   const [error, setError] = useState("");
   const [rules, setRules] = useState([]);
   const [newRule, setNewRule] = useState("");
+
+  const [isGeneratingIcon, setIsGeneratingIcon] = useState(false);
+
+  const handleGenerateIcon = async () => {
+    if (!communityName.trim() || communityName.trim().length < 3) {
+      toast.error('Enter a community name (3+ chars) first');
+      return;
+    }
+    if (!description.trim() || description.trim().length < 3) {
+      toast.error('Enter a description (3+ chars) first');
+      return;
+    }
+    try {
+      setIsGeneratingIcon(true);
+      const result = await aiService.generateCommunityIcon(communityName.trim(), description.trim().slice(0, 200));
+      if (result?.iconUrl) {
+        setIconPreview(result.iconUrl);
+        toast.success('Community icon generated!');
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.error?.message || err?.message || 'Failed to generate icon');
+    } finally {
+      setIsGeneratingIcon(false);
+    }
+  };
 
   const topics = COMMUNITY_CATEGORIES;
 
@@ -249,9 +275,20 @@ export default function CreateCommunity({ setActiveView }) {
 
               {/* Community Icon */}
               <div>
-                <label className="block text-sm font-medium text-black dark:text-white mb-2">
-                  Community Icon
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-black dark:text-white">
+                    Community Icon
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleGenerateIcon}
+                    disabled={isGeneratingIcon}
+                    className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition-colors disabled:opacity-50"
+                  >
+                    {isGeneratingIcon ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    {isGeneratingIcon ? 'Generating...' : 'AI Generate'}
+                  </button>
+                </div>
                 <label className="w-24 h-24 bg-gray-100 dark:bg-gray-900 border-2 border-dashed border-primary rounded-full cursor-pointer hover:border-primary-400 transition flex items-center justify-center overflow-hidden">
                   {iconPreview ? (
                     <img

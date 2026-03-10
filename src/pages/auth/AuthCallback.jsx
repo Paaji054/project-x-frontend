@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { tokenManager, api } from "../../utils/httpClient";
+import { toast } from "react-hot-toast";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
@@ -103,13 +104,13 @@ export default function AuthCallback() {
       const errorParam = params.get('error');
 
       if (errorParam) {
-        alert('Google login failed: ' + errorParam);
+        toast.error('Google login failed: ' + errorParam);
         window.location.href = '/login';
         return;
       }
 
       if (!tokensParam) {
-        alert('No authentication tokens received');
+        toast.error('No authentication tokens received');
         window.location.href = '/login';
         return;
       }
@@ -144,7 +145,7 @@ export default function AuthCallback() {
         window.location.href = '/';
       } catch (err) {
         console.error('Callback error:', err);
-        alert('Failed to complete login');
+        toast.error('Failed to complete login');
         window.location.href = '/login';
       } finally {
         setProcessing(false);

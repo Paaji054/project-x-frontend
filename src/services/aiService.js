@@ -48,7 +48,10 @@ export const aiService = {
    */
   async generateCaption(imageUrl, context = '') {
     try {
-      const response = await api.post(API_ENDPOINTS.AI.GENERATE_CAPTION, { imageUrl, context });
+      const payload = {};
+      if (imageUrl) payload.imageUrl = imageUrl;
+      if (context) payload.context = context;
+      const response = await api.post(API_ENDPOINTS.AI.GENERATE_CAPTION, payload);
       return response.success ? response.data : null;
     } catch (error) {
       console.error('Generate caption error:', error);
@@ -58,10 +61,12 @@ export const aiService = {
 
   /**
    * Generate bio
+   * @param {string[]} interests - Array of interest strings
+   * @param {string} tone - 'casual' | 'professional' | 'funny' | 'creative'
    */
-  async generateBio(description) {
+  async generateBio(interests = [], tone = 'casual') {
     try {
-      const response = await api.post(API_ENDPOINTS.AI.GENERATE_BIO, { description });
+      const response = await api.post(API_ENDPOINTS.AI.GENERATE_BIO, { interests, tone });
       return response.success ? response.data : null;
     } catch (error) {
       console.error('Generate bio error:', error);
@@ -71,10 +76,15 @@ export const aiService = {
 
   /**
    * Generate theme
+   * @param {string} mood - Theme mood description
+   * @param {string} baseColor - Hex color like '#6366f1'
    */
-  async generateTheme(themePrompt) {
+  async generateTheme(mood = '', baseColor = '') {
     try {
-      const response = await api.post(API_ENDPOINTS.AI.GENERATE_THEME, themePrompt);
+      const payload = {};
+      if (mood) payload.mood = mood;
+      if (baseColor) payload.baseColor = baseColor;
+      const response = await api.post(API_ENDPOINTS.AI.GENERATE_THEME, payload);
       return response.success ? response.data : null;
     } catch (error) {
       console.error('Generate theme error:', error);
@@ -84,10 +94,11 @@ export const aiService = {
 
   /**
    * Generate avatar
+   * @param {string} description - Description of the avatar
    */
-  async generateAvatar(avatarConfig) {
+  async generateAvatar(description) {
     try {
-      const response = await api.post(API_ENDPOINTS.AI.GENERATE_AVATAR, avatarConfig);
+      const response = await api.post(API_ENDPOINTS.AI.GENERATE_AVATAR, { description });
       return response.success ? response.data : null;
     } catch (error) {
       console.error('Generate avatar error:', error);
@@ -98,12 +109,9 @@ export const aiService = {
   /**
    * Generate community icon
    */
-  async generateCommunityIcon(name, description) {
+  async generateCommunityIcon(communityName, description) {
     try {
-      const response = await api.post(API_ENDPOINTS.AI.GENERATE_COMMUNITY_ICON, {
-        communityName: name,
-        description: (description && description.trim()) ? description.trim() : 'Community',
-      });
+      const response = await api.post(API_ENDPOINTS.AI.GENERATE_COMMUNITY_ICON, { communityName, description });
       return response.success ? response.data : null;
     } catch (error) {
       console.error('Generate community icon error:', error);

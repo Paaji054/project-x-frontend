@@ -14,6 +14,7 @@ import { useUserProfile } from "../hooks/useUserProfile";
 import { useAuth } from "../context/AuthContext";
 import { communityService } from "../services/communityService";
 import { postService } from "../services/postService";
+import { toast } from "react-hot-toast";
 import CommunitySettings from "./CommunitySettings";
 import CreatePost from "./CreatePost";
 
@@ -137,8 +138,10 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
       try {
         await communityService.joinCommunity(community.id || community._id);
         setIsJoined(true);
+        toast.success("Joined community!");
       } catch (err) {
         console.error("Error joining community:", err);
+        toast.error("Failed to join community. Please try again.");
         setError("Failed to join community. Please try again.");
       }
       return;
@@ -152,9 +155,10 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
     try {
       await communityService.leaveCommunity(community.id || community._id);
       setIsJoined(false);
+      toast.success("Left community");
     } catch (err) {
       console.error("Error leaving community:", err);
-      setError("Failed to leave community. Please try again.");
+      toast.error("Failed to leave community. Please try again.");
       setTimeout(() => setError(""), 5000);
     }
   };
@@ -179,8 +183,10 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
       try {
         await communityService.joinCommunity(community.id || community._id);
         setIsJoined(true);
+        toast.success("Joined community!");
       } catch (err) {
         console.error("Error joining community:", err);
+        toast.error("Failed to join community. Please try again.");
         setError("Failed to join community. Please try again.");
       }
     }
@@ -209,9 +215,10 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
     try {
       await communityService.joinCommunity(community.id || community._id, { password: passwordInput });
       setIsJoined(true);
+      toast.success("Joined community!");
     } catch (err) {
       console.error("Error joining community:", err);
-      setError("Failed to join community. Please try again.");
+      toast.error("Failed to join community. Please try again.");
     }
   };
 
@@ -245,6 +252,7 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
       }));
     } catch (err) {
       console.error("Error fetching comments:", err);
+      toast.error("Failed to load comments");
     }
     setOpenCommentsPostId(postId);
   };
@@ -327,6 +335,7 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
       }
     } catch (err) {
       console.error("Error liking comment:", err);
+      toast.error("Failed to like comment");
       // Revert on error - refetch comments
       try {
         const response = await postService.getPostComments(openCommentsPostId);
@@ -397,7 +406,7 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
       setRefreshKey(prev => prev + 1);
     } catch (err) {
       console.error('Error refreshing posts:', err);
-      setError('Failed to refresh posts');
+      toast.error('Failed to refresh posts');
     }
   };
 

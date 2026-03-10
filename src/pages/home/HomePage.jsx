@@ -5,6 +5,7 @@ import PostCard from "../../components/PostCard";
 import PostDetailModal from "../../components/PostDetailModal";
 import Comments from "../../components/Comments";
 import { postService } from "../../services";
+import { toast } from "react-hot-toast";
 import { useUserProfile } from "../../hooks/useUserProfile";
 import { useAuth } from "../../context/AuthContext";
 
@@ -90,6 +91,7 @@ export default function HomePage({ onViewUserProfile }) {
         }));
       } catch (err) {
         console.error("Error fetching comments:", err);
+        toast.error("Failed to load comments");
         setPostsComments((prev) => ({
           ...prev,
           [postId]: []
@@ -162,6 +164,7 @@ export default function HomePage({ onViewUserProfile }) {
       }
     } catch (err) {
       console.error("Error liking comment:", err);
+      toast.error("Failed to like comment");
       // Revert on error - refetch comments
       try {
         const response = await postService.getPostComments(activePostId);
@@ -171,6 +174,7 @@ export default function HomePage({ onViewUserProfile }) {
         }));
       } catch (refetchErr) {
         console.error("Error refetching comments:", refetchErr);
+        toast.error("Failed to refresh comments");
       }
     }
   };

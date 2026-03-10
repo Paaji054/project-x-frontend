@@ -9,6 +9,7 @@ import { getProfileVideoUrl } from "../utils/profileVideos";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useAuth } from "../context/AuthContext";
 import { userService, postService } from "../services";
+import { toast } from "react-hot-toast";
 
 export default function OtherUserProfile({ username: viewedUsername, onViewUserProfile }) {
   const navigate = useNavigate();
@@ -220,7 +221,7 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
       console.error("Error toggling follow:", err);
       setIsFollowing(previousFollowingState);
       const msg = err?.message ?? err?.data?.error ?? (typeof err?.data === 'string' ? err.data : null) ?? (err?.error?.message) ?? "Failed to update follow status. Please try again.";
-      alert(msg);
+      toast.error(msg);
     }
   };
 
@@ -253,7 +254,7 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
       console.error("Error following user:", err);
       const raw = err?.message ?? err?.data?.error?.message ?? err?.error?.message ?? err?.data?.error ?? err?.error;
       const errorMessage = typeof raw === 'string' ? raw : (raw?.message ? String(raw.message) : "Failed to follow user. Please try again.");
-      alert(errorMessage);
+      toast.error(errorMessage);
       setIsFollowing(previousFollowingState);
     }
   };
@@ -276,7 +277,7 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
     } catch (err) {
       console.error("Error unfollowing user:", err);
       const errorMessage = err?.message || err?.error?.message || "Failed to unfollow user. Please try again.";
-      alert(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
