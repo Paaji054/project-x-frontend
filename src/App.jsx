@@ -29,6 +29,8 @@ import OtherUserProfile from "./components/OtherUserProfile";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import SignInGoogleRedirect from "./pages/auth/SignInGoogleRedirect";
 import AITools from "./components/AITools";
+import TermsPage from "./pages/legal/TermsPage";
+import PrivacyPage from "./pages/legal/PrivacyPage";
 
 export default function App() {
   const { isAuthenticated, isLoading: authLoading, logout } = useAuth();
@@ -190,6 +192,8 @@ export default function App() {
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
       <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
       
       {/* Frontend-only path for Google sign-in to avoid exposing backend URL in client */}
       <Route path="/auth/signin-google" element={<SignInGoogleRedirect />} />

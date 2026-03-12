@@ -166,12 +166,13 @@ class HTTPClient {
       }
 
       const data = await response.json();
-      if (data.accessToken) {
-        tokenManager.setAccessToken(data.accessToken);
-        if (data.refreshToken) {
-          tokenManager.setRefreshToken(data.refreshToken);
+      const payload = data.data || data;
+      if (payload.accessToken) {
+        tokenManager.setAccessToken(payload.accessToken);
+        if (payload.refreshToken) {
+          tokenManager.setRefreshToken(payload.refreshToken);
         }
-        return data.accessToken;
+        return payload.accessToken;
       }
 
       throw new Error('No access token in response');

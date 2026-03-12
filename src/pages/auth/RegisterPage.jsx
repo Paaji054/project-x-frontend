@@ -1,20 +1,23 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { authService } from "../../services/authService";
 
 export default function RegisterPage({ onSwitchToLogin }) {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, logout: authLogout } = useAuth();
   const [formData, setFormData] = useState({
     name: "",
     username: "",
     email: "",
     password: "",
+    confirmPassword: "",
   });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const particlesRef = useRef(null);
   const backgroundElementsRef = useRef(null);
   const gridBackgroundRef = useRef(null);
@@ -286,6 +289,16 @@ export default function RegisterPage({ onSwitchToLogin }) {
     if (error) setError("");
   };
 
+  // Password strength: at least one upper, one lower, one number, one special (matches backend)
+  const getPasswordStrengthError = (pwd) => {
+    if (!pwd || pwd.length < 8) return "Password must be at least 8 characters";
+    if (!/[A-Z]/.test(pwd)) return "Password must contain at least one uppercase letter";
+    if (!/[a-z]/.test(pwd)) return "Password must contain at least one lowercase letter";
+    if (!/\d/.test(pwd)) return "Password must contain at least one number";
+    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(pwd)) return "Password must contain at least one special character (!@#$%^&* etc.)";
+    return "";
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -322,8 +335,15 @@ export default function RegisterPage({ onSwitchToLogin }) {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters");
+    const pwdError = getPasswordStrengthError(formData.password);
+    if (pwdError) {
+      setError(pwdError);
+      triggerErrorAnimation();
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match");
       triggerErrorAnimation();
       return;
     }
@@ -353,9 +373,10 @@ export default function RegisterPage({ onSwitchToLogin }) {
 
       if (response.success) {
         createSuccessParticles();
-        // Wait for animation before redirecting - user is already authenticated via AuthContext
+        // Clear auth state so user lands on login page (not auto-logged in)
+        await authLogout();
         setTimeout(() => {
-          navigate('/home');
+          navigate('/login', { state: { registered: true } });
         }, 800);
       } else {
         setError(response.message || "Registration failed. Please try again.");
@@ -1559,7 +1580,7 @@ export default function RegisterPage({ onSwitchToLogin }) {
                 />
               </div>
 
-              <div className={`input-group ${error && (!formData.password.trim() || formData.password.length < 6) ? "has-error" : ""}`}>
+              <div className={`input-group ${error && (!formData.password.trim() || formData.password.length < 8 || getPasswordStrengthError(formData.password)) ? "has-error" : ""}`}>
                 <label htmlFor="password">PASSWORD</label>
                 <div className="password-input-wrapper">
                   <input
@@ -1567,7 +1588,7 @@ export default function RegisterPage({ onSwitchToLogin }) {
                     id="password"
                     name="password"
                     className="input-field"
-                    placeholder="Create a password"
+                    placeholder="Create a password (8+ chars, upper, lower, number, special)"
                     value={formData.password}
                     onChange={handleChange}
                     autoComplete="new-password"
@@ -1586,10 +1607,45 @@ export default function RegisterPage({ onSwitchToLogin }) {
                     </button>
                   )}
                 </div>
-                {error && (
+                {formData.password && getPasswordStrengthError(formData.password) && (
+                  <span className="error-message" role="alert">{getPasswordStrengthError(formData.password)}</span>
+                )}
+                {error && !formData.confirmPassword && (
                   <span className="error-message" role="alert" id="password-error">
                     {error}
                   </span>
+                )}
+              </div>
+
+              <div className={`input-group ${error && formData.password !== formData.confirmPassword ? "has-error" : ""}`}>
+                <label htmlFor="confirmPassword">CONFIRM PASSWORD</label>
+                <div className="password-input-wrapper">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    className="input-field"
+                    placeholder="Confirm your password"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    autoComplete="new-password"
+                    required
+                    style={{ paddingRight: "60px" }}
+                  />
+                  {formData.confirmPassword && (
+                    <button
+                      type="button"
+                      className="password-toggle"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      tabIndex={-1}
+                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                    >
+                      {showConfirmPassword ? "HIDE" : "SHOW"}
+                    </button>
+                  )}
+                </div>
+                {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                  <span className="error-message" role="alert">Passwords do not match</span>
                 )}
               </div>
 
@@ -1605,11 +1661,11 @@ export default function RegisterPage({ onSwitchToLogin }) {
                 />
                 <label htmlFor="terms">
                   I agree with the{" "}
-                  <a href="#" onClick={(e) => e.preventDefault()}>
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
                     Terms of Service
                   </a>{" "}
                   and{" "}
-                  <a href="#" onClick={(e) => e.preventDefault()}>
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
                     Privacy Policy
                   </a>
                 </label>
@@ -1619,7 +1675,7 @@ export default function RegisterPage({ onSwitchToLogin }) {
                 <button
                   type="submit"
                   className={`btn signup-btn ${isLoading ? "loading" : ""}`}
-                  disabled={isLoading || !formData.name.trim() || !formData.username.trim() || !formData.email.trim() || !formData.password.trim() || !agreedToTerms}
+                  disabled={isLoading || !formData.name.trim() || !formData.username.trim() || !formData.email.trim() || !formData.password.trim() || !formData.confirmPassword.trim() || formData.password !== formData.confirmPassword || !!getPasswordStrengthError(formData.password) || !agreedToTerms}
                   aria-busy={isLoading}
                 >
                   <span>{isLoading ? "CREATING..." : "SIGN UP"}</span>

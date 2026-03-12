@@ -24,10 +24,14 @@ export default function LoginPage() {
   const [isSendingReset, setIsSendingReset] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showUnregisteredModal, setShowUnregisteredModal] = useState(false);
   const particlesRef = useRef(null);
   const backgroundElementsRef = useRef(null);
   const gridBackgroundRef = useRef(null);
   const scanLineRef = useRef(null);
+  const audioARef = useRef(null);
+  const audioBRef = useRef(null);
+  const activeTrackRef = useRef(null); // 'A' | 'B' | null
 
   // Handle OAuth callback errors (e.g. user cancelled Google sign-in)
   useEffect(() => {
@@ -232,6 +236,45 @@ export default function LoginPage() {
     };
   }, []);
 
+  // A/B button background music: A = soft track 1, B = soft track 2 (instrumental, no lyrics)
+  const handleActionButtonA = () => {
+    if (activeTrackRef.current === 'A') {
+      if (audioARef.current) {
+        audioARef.current.pause();
+        audioARef.current.currentTime = 0;
+      }
+      activeTrackRef.current = null;
+      return;
+    }
+    if (audioBRef.current) {
+      audioBRef.current.pause();
+      audioBRef.current.currentTime = 0;
+    }
+    if (audioARef.current) {
+      audioARef.current.play().catch(() => {});
+      activeTrackRef.current = 'A';
+    }
+  };
+
+  const handleActionButtonB = () => {
+    if (activeTrackRef.current === 'B') {
+      if (audioBRef.current) {
+        audioBRef.current.pause();
+        audioBRef.current.currentTime = 0;
+      }
+      activeTrackRef.current = null;
+      return;
+    }
+    if (audioARef.current) {
+      audioARef.current.pause();
+      audioARef.current.currentTime = 0;
+    }
+    if (audioBRef.current) {
+      audioBRef.current.play().catch(() => {});
+      activeTrackRef.current = 'B';
+    }
+  };
+
   // Input focus effects
   useEffect(() => {
     const inputFields = document.querySelectorAll(".input-field");
@@ -329,8 +372,15 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.message || "Invalid credentials. Please try again.");
-      triggerErrorAnimation();
+      const msg = err.message || "Invalid credentials. Please try again.";
+      const isUnregistered = err.status === 404 || (typeof msg === 'string' && msg.toLowerCase().includes('create an account'));
+      if (isUnregistered) {
+        setShowUnregisteredModal(true);
+        setError('');
+      } else {
+        setError(msg);
+        triggerErrorAnimation();
+      }
     } finally {
       setIsLoading(false);
       if (controller) {
@@ -1899,6 +1949,11 @@ export default function LoginPage() {
             </div>
 
             <form id="loginForm" onSubmit={handleSubmit}>
+              {location.state?.registered && (
+                <div className="success-message" style={{ marginBottom: 16, padding: '12px 16px', background: 'rgba(16, 185, 129, 0.2)', border: '1px solid rgba(16, 185, 129, 0.5)', borderRadius: 8, color: '#10b981' }} role="status">
+                  Account created. Please sign in.
+                </div>
+              )}
               <div className="input-group">
                 <label htmlFor="username">USERNAME</label>
                 <input
@@ -2004,8 +2059,23 @@ export default function LoginPage() {
                 <button className="d-pad-btn d-pad-down"></button>
               </div>
               <div className="action-buttons">
-                <button className="action-btn">A</button>
-                <button className="action-btn">B</button>
+                {/* Soft instrumental background music - A and B play different tracks */}
+                <audio
+                  ref={audioARef}
+                  src="https://cdn.pixabay.com/audio/2022/05/27/audio_3062b2f282.mp3"
+                  loop
+                  preload="metadata"
+                  title="Soft background music A"
+                />
+                <audio
+                  ref={audioBRef}
+                  src="https://cdn.pixabay.com/audio/2022/08/04/audio_3816f2f818.mp3"
+                  loop
+                  preload="metadata"
+                  title="Soft background music B"
+                />
+                <button type="button" className="action-btn" onClick={handleActionButtonA} aria-label="Play or pause soft background music A">A</button>
+                <button type="button" className="action-btn" onClick={handleActionButtonB} aria-label="Play or pause soft background music B">B</button>
               </div>
             </div>
 
@@ -2020,6 +2090,32 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
+
+        {/* Unregistered user modal - redirect to sign up */}
+        {showUnregisteredModal && (
+          <div className="forgot-password-modal-overlay" onClick={() => setShowUnregisteredModal(false)} role="dialog" aria-modal="true" aria-labelledby="unregistered-modal-title">
+            <div className="forgot-password-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2 id="unregistered-modal-title">Account not found</h2>
+                <button type="button" className="modal-close-btn" onClick={() => setShowUnregisteredModal(false)} aria-label="Close">×</button>
+              </div>
+              <p style={{ color: '#ccc', marginBottom: 24 }}>Please create an account before logging in.</p>
+              <div className="button-group">
+                <button
+                  type="button"
+                  className="btn login-btn"
+                  onClick={() => {
+                    setShowUnregisteredModal(false);
+                    navigate('/register');
+                  }}
+                >
+                  Create account
+                </button>
+                <button type="button" className="btn signup-btn" onClick={() => setShowUnregisteredModal(false)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Forgot Password Modal - 3 Steps */}
         {showForgotPassword && (
