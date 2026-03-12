@@ -15,6 +15,7 @@ import { toast } from "react-hot-toast";
 export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfile, currentUserId, onPostDeleted }) {
   const [liked, setLiked] = useState(post?.isLiked || post?.liked || false);
   const [likes, setLikes] = useState(post?.likesCount || post?.likes || 0);
+  const [commentsCount, setCommentsCount] = useState(post?.commentsCount ?? 0);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [newComment, setNewComment] = useState("");
   const commentsEndRef = useRef(null);
@@ -69,11 +70,12 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
 
     if (isOpen && postId) {
       loadComments();
-      // Update like state from post prop - ensure we use the backend value
+      // Update like state and comment count from post prop
       setLiked(post?.isLiked || post?.liked || false);
       setLikes(post?.likesCount || post?.likes || 0);
+      setCommentsCount(post?.commentsCount ?? 0);
     }
-  }, [isOpen, postId, post?.isLiked, post?.liked, post?.likesCount, post?.likes]);
+  }, [isOpen, postId, post?.isLiked, post?.liked, post?.likesCount, post?.likes, post?.commentsCount]);
 
   const fetchComments = async () => {
     if (!postId) return;
@@ -178,7 +180,8 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
       const body = { text: commentText };
       if (parentId) body.parentId = parentId;
       const response = await postService.addComment(postId, body);
-      
+      if (response?.commentsCount != null) setCommentsCount(response.commentsCount);
+
       const raw = response?.comment ?? response?.data ?? response;
       if (raw && (raw._id || raw.id)) {
         const newCommentObj = {
@@ -282,6 +285,7 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
       setCommentMenuOpenId(null);
       await postService.deleteComment(postId, commentId);
       setComments((prev) => prev.filter((c) => (c._id || c.id) !== commentId));
+      setCommentsCount((prev) => Math.max(0, prev - 1));
     } catch (err) {
       console.error("Failed to delete comment:", err);
       toast.error("Failed to delete comment. Please try again.");
@@ -451,7 +455,7 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
               <div className="w-full h-1/2 md:h-full flex flex-col bg-white dark:bg-[#0f0f0f] overflow-hidden">
                 {/* Comments Header */}
                 <div className="flex items-center justify-between p-3 md:p-5 border-b border-gray-300 dark:border-gray-800 flex-shrink-0">
-                  <h3 className="text-base md:text-xl font-semibold text-black dark:text-white">Comments</h3>
+                  <h3 className="text-base md:text-xl font-semibold text-black dark:text-white">Comments {commentsCount > 0 ? `(${commentsCount})` : ''}</h3>
                 </div>
 
                 {/* Comments List - Scrollable with fixed height */}

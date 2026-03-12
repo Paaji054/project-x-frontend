@@ -109,6 +109,8 @@ export const API_ENDPOINTS = {
     SEND: '/api/messages',
     BY_CONVERSATION: (conversationId) => `/api/messages/${conversationId}`,
     MARK_READ: (conversationId) => `/api/messages/${conversationId}/read`,
+    EDIT_MESSAGE: (messageId) => `/api/messages/message/${messageId}`,
+    DELETE_MESSAGE: (messageId) => `/api/messages/message/${messageId}`,
   },
   
   // Credits/Payments

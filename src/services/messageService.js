@@ -85,6 +85,32 @@ export const messageService = {
   },
 
   /**
+   * Edit message (text only). Backend returns updated message.
+   */
+  async editMessage(messageId, text) {
+    try {
+      const response = await api.patch(API_ENDPOINTS.MESSAGES.EDIT_MESSAGE(messageId), { text });
+      return response.success ? response.data.message : null;
+    } catch (error) {
+      console.error('Edit message error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete message (soft delete). Sender only.
+   */
+  async deleteMessage(messageId) {
+    try {
+      const response = await api.delete(API_ENDPOINTS.MESSAGES.DELETE_MESSAGE(messageId));
+      return response.success;
+    } catch (error) {
+      console.error('Delete message error:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Mark conversation as read
    */
   async markConversationAsRead(conversationId, lastReadMessageId = null) {

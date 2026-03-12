@@ -69,7 +69,8 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
         text: msg.text || msg.mediaUrl || '',
         sender: msg.senderId === currentUid ? 'sender' : 'receiver',
         time: new Date(msg.createdAt || Date.now()).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-        status: msg.senderId === currentUid ? (msg.readAt ? 'read' : (msg.deliveredAt ? 'delivered' : 'sent')) : null,
+        createdAt: msg.createdAt || new Date().toISOString(),
+        status: msg.senderId === currentUid ? (msg.readAt ? 'read' : 'sent') : null,
         isDelivered: !!msg.deliveredAt,
         isRead: !!msg.readAt,
         type: msg.type || 'text',
@@ -78,7 +79,10 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
       };
       setMessages((prev) => {
         if (prev.some((m) => String(m.id) === String(newMsg.id))) return prev;
-        return [...prev, newMsg];
+        const next = [...prev, newMsg].sort(
+          (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+        );
+        return next;
       });
     };
 
@@ -102,6 +106,13 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
   const [loadingContacts, setLoadingContacts] = useState(false);
   // Shared post preview modal state
   const [sharedPostData, setSharedPostData] = useState(null);
+  // Cache of shared post data for inline preview cards (postId -> post object)
+  const [sharedPostPreviews, setSharedPostPreviews] = useState({});
+  // Edit message state
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editDraftText, setEditDraftText] = useState('');
+  // Delete confirmation
+  const [deleteConfirmMessageId, setDeleteConfirmMessageId] = useState(null);
   
   // Read receipt settings - load from localStorage
   const [readReceiptsEnabled, setReadReceiptsEnabled] = useState(() => {
@@ -264,24 +275,28 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
       const msgs = await messageService.getMessagesByConversation(conversationId, 50, 0);
       
       // Transform API messages to component format
-      // Backend message format: { _id, senderId, text, mediaUrl, type, readAt, deliveredAt, createdAt, sender: {...} }
+      // Backend returns newest first; we want ascending order (oldest first, newest at bottom)
       const transformedMsgs = msgs.map(msg => ({
         id: msg._id,
         text: msg.text || msg.mediaUrl || '', // Backend uses 'text' field, mediaUrl for media messages
         sender: msg.senderId === currentUserId ? 'sender' : 'receiver', // Compare senderId with currentUserId
         time: new Date(msg.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-        // Read receipt status - check readAt and deliveredAt timestamps
+        createdAt: msg.createdAt, // Keep for sorting
+        // Read receipt: show Sent or Seen only (delivered treated as sent)
         status: msg.senderId === currentUserId 
-          ? (msg.readAt ? 'read' : (msg.deliveredAt ? 'delivered' : 'sent')) 
+          ? (msg.readAt ? 'read' : 'sent') 
           : null,
         isDelivered: !!msg.deliveredAt,
         isRead: !!msg.readAt,
         type: msg.type || 'text', // Message type: text, image, video, voice, post_share
         mediaUrl: msg.mediaUrl, // Media URL if present
         sharedPostId: msg.sharedPostId || null, // Shared post ID for post_share messages
+        isDeleted: !!msg.isDeleted, // Soft-deleted messages show "Message deleted"
       }));
-      
-      setMessages(transformedMsgs);
+      const sorted = [...transformedMsgs].sort(
+        (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+      );
+      setMessages(sorted);
       
       // Mark conversation as read
       await messageService.markConversationAsRead(conversationId);
@@ -306,28 +321,106 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
     }
   };
 
+  // Fetch shared post previews for post_share messages (for inline card)
+  const sharedPostIds = React.useMemo(
+    () => [...new Set(messages.filter((m) => m.sharedPostId).map((m) => m.sharedPostId))],
+    [messages]
+  );
+  useEffect(() => {
+    if (sharedPostIds.length === 0) return;
+    let cancelled = false;
+    sharedPostIds.forEach((postId) => {
+      postService.getPostById(postId).then((data) => {
+        if (cancelled) return;
+        const post = data?.post || data;
+        if (post) {
+          setSharedPostPreviews((prev) => (prev[postId] ? prev : { ...prev, [postId]: post }));
+        }
+      }).catch(() => {
+        if (!cancelled) setSharedPostPreviews((prev) => (prev[postId] !== undefined ? prev : { ...prev, [postId]: null }));
+      });
+    });
+    return () => { cancelled = true; };
+  }, [sharedPostIds.join(',')]);
+
+  const handleStartEdit = (message) => {
+    if (message.isDeleted || (message.type !== 'text' && message.type !== 'post_share')) return;
+    setEditingMessageId(message.id);
+    setEditDraftText(message.text || '');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditDraftText('');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingMessageId || !editDraftText.trim()) return;
+    try {
+      const updated = await messageService.editMessage(editingMessageId, editDraftText.trim());
+      if (updated) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === editingMessageId ? { ...m, text: updated.text || editDraftText.trim() } : m
+          )
+        );
+      }
+      handleCancelEdit();
+    } catch (err) {
+      toast.error('Failed to update message');
+      console.error(err);
+    }
+  };
+
+  const handleRequestDelete = (messageId) => setDeleteConfirmMessageId(messageId);
+  const handleCancelDelete = () => setDeleteConfirmMessageId(null);
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmMessageId) return;
+    try {
+      await messageService.deleteMessage(deleteConfirmMessageId);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === deleteConfirmMessageId ? { ...m, isDeleted: true, text: '' } : m
+        )
+      );
+      handleCancelDelete();
+    } catch (err) {
+      toast.error('Failed to delete message');
+      console.error(err);
+    }
+  };
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Auto-open chat when selectedChatUsername is provided
+  // Auto-open chat when selectedChatUsername is provided (from profile or /messages?user=xxx)
+  const lastHandledUsernameRef = useRef(null);
   useEffect(() => {
-    if (selectedChatUsername && conversations.length > 0) {
-      // Check if conversation already exists
-      const existingConvo = conversations.find(convo =>
-        convo.otherUser?.username?.toLowerCase() === selectedChatUsername.toLowerCase()
-      );
+    if (!selectedChatUsername || loadingConversations) return;
+    const username = selectedChatUsername.trim().toLowerCase();
+    if (!username) return;
+    // Run again when username changes (e.g. navigated from profile A to profile B)
+    if (lastHandledUsernameRef.current === username) return;
+    lastHandledUsernameRef.current = username;
 
-      if (existingConvo) {
-        // Open existing conversation
-        handleChatClick(existingConvo);
-      } else {
-        // Create new conversation
-        createNewConversation(selectedChatUsername);
-      }
+    const existingConvo = conversations.find(
+      (convo) => convo.otherUser?.username?.toLowerCase() === username
+    );
+
+    if (existingConvo) {
+      handleChatClick(existingConvo);
+    } else {
+      createNewConversation(selectedChatUsername);
     }
-  }, [selectedChatUsername, conversations]);
+  }, [selectedChatUsername, loadingConversations, conversations]);
+
+  // Reset when selectedChatUsername is cleared so next time it's set we run again
+  useEffect(() => {
+    if (!selectedChatUsername) lastHandledUsernameRef.current = null;
+  }, [selectedChatUsername]);
 
   const createNewConversation = async (username) => {
     try {
@@ -757,50 +850,84 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
                         className={`flex flex-col ${message.sender === 'sender' ? 'items-end' : 'items-start'}`}
                 >
                   {isPostShare ? (
-                    /* Shared Post Card - Instagram-style */
-                    <button
-                      onClick={() => handleOpenSharedPost(message.sharedPostId)}
-                      className={`max-w-[75%] md:max-w-[60%] rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition-opacity ${message.sender === 'sender'
-                        ? themes[currentTheme]?.senderBubble || themes.default.senderBubble
-                        : themes[currentTheme]?.receiverBubble || themes.default.receiverBubble
-                      }`}
-                    >
-                      {message.mediaUrl && (
-                        <div className="w-full aspect-square max-w-[240px] bg-gray-100 dark:bg-gray-900">
-                          <img
-                            src={message.mediaUrl}
-                            alt="Shared post"
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        </div>
-                      )}
-                      <div className="px-3 py-2 flex items-center gap-2">
-                        <svg className="w-4 h-4 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span className="text-xs font-medium">
-                          {message.text || 'Shared a post'}
-                        </span>
+                    /* Shared Post Card - preview with image, caption, metadata */
+                    (() => {
+                      const preview = message.sharedPostId ? sharedPostPreviews[message.sharedPostId] : null;
+                      const mediaUrl = preview?.imageUrl || preview?.image || preview?.images?.[0] || message.mediaUrl;
+                      const caption = preview?.caption || '';
+                      const username = preview?.user?.username || preview?.author?.username || '';
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => !message.isDeleted && message.sharedPostId && handleOpenSharedPost(message.sharedPostId)}
+                          disabled={message.isDeleted}
+                          className={`max-w-[75%] md:max-w-[60%] rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-default text-left ${message.sender === 'sender'
+                            ? themes[currentTheme]?.senderBubble || themes.default.senderBubble
+                            : themes[currentTheme]?.receiverBubble || themes.default.receiverBubble
+                          }`}
+                        >
+                          {mediaUrl ? (
+                            <div className="w-full aspect-square max-w-[240px] bg-gray-100 dark:bg-gray-900">
+                              <img
+                                src={mediaUrl}
+                                alt="Shared post"
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-full aspect-square max-w-[120px] bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                              <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          )}
+                          <div className="px-3 py-2 space-y-1">
+                            {caption ? <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-2">{caption}</p> : null}
+                            {username ? <p className="text-xs text-gray-500 dark:text-gray-400">@{username}</p> : null}
+                            <span className="text-xs font-medium text-primary">View post</span>
+                          </div>
+                        </button>
+                      );
+                    })()
+                  ) : editingMessageId === message.id ? (
+                    /* Inline edit */
+                    <div className={`max-w-[75%] md:max-w-[60%] rounded-2xl px-3 py-2 ${themes[currentTheme]?.senderBubble || themes.default.senderBubble}`}>
+                      <input
+                        value={editDraftText}
+                        onChange={(e) => setEditDraftText(e.target.value)}
+                        className="w-full bg-transparent text-sm md:text-base text-black dark:text-white outline-none border-none"
+                        autoFocus
+                        onKeyDown={(e) => { e.key === 'Enter' && handleSaveEdit(); e.key === 'Escape' && handleCancelEdit(); }}
+                      />
+                      <div className="flex gap-2 mt-2">
+                        <button type="button" onClick={handleSaveEdit} className="text-xs font-medium text-primary hover:underline">Save</button>
+                        <button type="button" onClick={handleCancelEdit} className="text-xs font-medium text-gray-500 hover:underline">Cancel</button>
                       </div>
-                    </button>
+                    </div>
                   ) : (
-                  <div
+                  <div className="relative group">
+                    <div
                           className={`max-w-[75%] md:max-w-[60%] rounded-2xl px-4 py-2 ${message.sender === 'sender'
                             ? themes[currentTheme]?.senderBubble || themes.default.senderBubble
                             : themes[currentTheme]?.receiverBubble || themes.default.receiverBubble
                     }`}
                   >
-                    <p className="text-sm md:text-base">{message.text}</p>
+                    <p className="text-sm md:text-base">{message.isDeleted ? 'This message was deleted' : message.text}</p>
+                  </div>
+                  {message.sender === 'sender' && !message.isDeleted && (message.type === 'text' || message.type === 'post_share') && (
+                    <div className="absolute -left-2 top-1/2 -translate-y-1/2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button type="button" onClick={() => handleStartEdit(message)} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700" title="Edit"><Edit className="w-3.5 h-3.5 text-gray-500" /></button>
+                      <button type="button" onClick={() => handleRequestDelete(message.id)} className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30" title="Delete"><X className="w-3.5 h-3.5 text-red-500" /></button>
+                    </div>
+                  )}
                   </div>
                   )}
-                        {/* Read Receipts - Only show on the last sender message and if read receipts are enabled */}
+                        {/* Read Receipts - Only show on the last sender message; Sent vs Seen only */}
                         {message.sender === 'sender' && isLastSenderMessage && readReceiptsEnabled && (
                           <div className="mt-1 px-1">
                             {message.status === 'read' ? (
                               <span className="text-xs text-gray-400 dark:text-gray-500">Seen</span>
-                            ) : message.status === 'delivered' ? (
-                              <span className="text-xs text-gray-400 dark:text-gray-500">Delivered</span>
                             ) : (
                               <span className="text-xs text-gray-400 dark:text-gray-500">Sent</span>
                             )}
@@ -923,6 +1050,19 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
                   </div>
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete message confirmation */}
+      {deleteConfirmMessageId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-xl max-w-sm w-full p-5">
+            <p className="text-base font-medium text-black dark:text-white mb-4">Delete this message? This cannot be undone.</p>
+            <div className="flex gap-3 justify-end">
+              <button type="button" onClick={handleCancelDelete} className="px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800">Cancel</button>
+              <button type="button" onClick={handleConfirmDelete} className="px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700">Delete</button>
             </div>
           </div>
         </div>
