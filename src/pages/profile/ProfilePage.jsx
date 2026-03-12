@@ -7,10 +7,12 @@ import LogoutConfirmationModal from "../../components/LogoutConfirmationModal";
 import ProfileSettings from "../../components/ProfileSettings";
 import FollowersFollowingModal from "../../components/FollowersFollowingModal";
 import LiveProfilePhoto from "../../components/LiveProfilePhoto";
+import StoryViewer from "../../components/StoryViewer";
 import { useUserProfile } from "../../hooks/useUserProfile";
 import { getProfileVideoUrl } from "../../utils/profileVideos";
 import { useAuth } from "../../context/AuthContext";
 import { userService, postService } from "../../services";
+import { storyService } from "../../services/storyService";
 import { toast } from "react-hot-toast";
 
 export default function ProfilePage({ onLogout, onViewUserProfile }) {
@@ -30,6 +32,8 @@ export default function ProfilePage({ onLogout, onViewUserProfile }) {
 
   // Posts state - will be fetched from API
   const [posts, setPosts] = useState([]);
+  const [profileStories, setProfileStories] = useState([]);
+  const [profileStoryViewerIndex, setProfileStoryViewerIndex] = useState(null);
 
   // Followers and Following lists - counts will be dynamic based on these array lengths
   const [followersList, setFollowersList] = useState([]);
@@ -129,6 +133,20 @@ const fetchProfileData = async () => {
     };
     
     setProfileData(safeUserData);
+
+    // Fetch user's stories for profile story ring
+    const userId = userData.uid || userData._id || userData.id;
+    if (userId) {
+      try {
+        const userStories = await storyService.getUserStories(userId);
+        const list = Array.isArray(userStories) ? userStories : (userStories?.stories || []);
+        setProfileStories(list.map(s => ({ ...s, id: s._id || s.id, image: s.mediaUrl || s.image })));
+      } catch {
+        setProfileStories([]);
+      }
+    } else {
+      setProfileStories([]);
+    }
 
     // Fetch user posts (use same API shape as OtherUserProfile for consistency)
     const userPosts = await postService.getUserPosts(actualUsername, 50, 1);
@@ -330,19 +348,22 @@ const fetchProfileData = async () => {
 
         {/* Profile Info Section */}
         <div className="flex flex-col items-center gap-6 mb-8">
-          {/* Profile Picture */}
+          {/* Profile Picture with optional Story Ring */}
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5 }}
-            className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-2 border-black dark:border-gray-800"
+            className={`relative rounded-full overflow-hidden border-2 border-black dark:border-gray-800 ${profileStories.length > 0 ? "p-[3px] rounded-full bg-gradient-to-tr from-primary-400 via-primary to-primary-700 cursor-pointer" : ""}`}
+            onClick={profileStories.length > 0 ? () => setProfileStoryViewerIndex(0) : undefined}
           >
-            <LiveProfilePhoto
-              imageSrc={profilePhoto}
-              videoSrc={profileVideo}
-              alt="Profile"
-              className="w-full h-full rounded-full"
-            />
+            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-2 border-white dark:border-black bg-gray-100 dark:bg-gray-900">
+              <LiveProfilePhoto
+                imageSrc={profilePhoto}
+                videoSrc={profileVideo}
+                alt="Profile"
+                className="w-full h-full rounded-full"
+              />
+            </div>
           </motion.div>
 
           {/* Profile Details */}
@@ -523,6 +544,21 @@ const fetchProfileData = async () => {
         onViewUserProfile={onViewUserProfile}
         currentUsername={username}
       />
+
+      {/* Profile Stories Viewer */}
+      {profileStoryViewerIndex !== null && profileStories.length > 0 && (
+        <StoryViewer
+          stories={profileStories}
+          initialIndex={profileStoryViewerIndex}
+          onClose={() => setProfileStoryViewerIndex(null)}
+          onStoryViewed={() => {}}
+          currentUserId={user?.uid || user?.id}
+          onStoryDeleted={(deletedId) => {
+            setProfileStories((prev) => prev.filter((s) => (s._id || s.id) !== deletedId));
+            setProfileStoryViewerIndex(null);
+          }}
+        />
+      )}
     </div>
   );
 }

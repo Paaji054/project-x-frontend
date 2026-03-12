@@ -1,6 +1,6 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, X, Type, Sparkles, Image as ImageIcon, Camera, Loader2, UserPlus } from "lucide-react";
+import { ArrowLeft, X, Type, Sparkles, Image as ImageIcon, Camera, Loader2, UserPlus, Video } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import logo from "../assets/logo.svg";
 import { storyService } from "../services/storyService";
@@ -9,24 +9,36 @@ import { userService } from "../services";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { toast } from "react-hot-toast";
 
+const STORY_RECENTS_KEY = "storyRecents";
+const MAX_RECENTS = 10;
+
 export default function AddStory() {
   const navigate = useNavigate();
   const { username } = useUserProfile();
-  const [step, setStep] = useState("select"); // "select", "edit"
+  const [step, setStep] = useState("select");
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [mediaType, setMediaType] = useState("image");
   const [showFilters, setShowFilters] = useState(false);
   const [showText, setShowText] = useState(false);
   const [showStickers, setShowStickers] = useState(false);
   const [textValue, setTextValue] = useState("");
   const [textColor, setTextColor] = useState("#FFFFFF");
+  const [textPosition, setTextPosition] = useState({ x: 50, y: 50 });
+  const [textDragging, setTextDragging] = useState(false);
+  const [stickerOverlays, setStickerOverlays] = useState([]);
   const [filter, setFilter] = useState("none");
   const [isUploading, setIsUploading] = useState(false);
   const [showTagModal, setShowTagModal] = useState(false);
   const [taggedPeople, setTaggedPeople] = useState([]);
   const [followingList, setFollowingList] = useState([]);
   const [loadingFollowing, setLoadingFollowing] = useState(false);
+  const [showRecentsDropdown, setShowRecentsDropdown] = useState(false);
+  const [recents, setRecents] = useState([]);
   const imageInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
+  const videoInputRef = useRef(null);
+  const previewContainerRef = useRef(null);
 
   const filters = [
     { id: "none", name: "Normal" },
@@ -44,6 +56,27 @@ export default function AddStory() {
   ];
 
   const stickers = ["❤️", "🔥", "😍", "😎", "💯", "⭐", "🎉", "👑", "💪", "✨", "🙌", "🎊"];
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORY_RECENTS_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      setRecents(Array.isArray(list) ? list.slice(0, MAX_RECENTS) : []);
+    } catch {
+      setRecents([]);
+    }
+  }, [step]);
+
+  const addToRecents = (url) => {
+    if (!url || typeof url !== "string") return;
+    setRecents((prev) => {
+      const next = [url, ...prev.filter((u) => u !== url)].slice(0, MAX_RECENTS);
+      try {
+        localStorage.setItem(STORY_RECENTS_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const fetchFollowing = async () => {
     if (followingList.length > 0) return; // Already loaded
@@ -66,27 +99,39 @@ export default function AddStory() {
   const handleImageSelect = (image) => {
     setSelectedImage(image);
     setImagePreview(image.url);
+    setMediaType(image.mediaType || "image");
     setStep("edit");
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = (e, type) => {
     const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const imageData = { id: Date.now(), url: reader.result };
-        setSelectedImage(imageData);
-        setImagePreview(reader.result);
-        setStep("edit");
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    const isVideo = type === "video" || file.type.startsWith("video/");
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const url = reader.result;
+      const imageData = { id: Date.now(), url, mediaType: isVideo ? "video" : "image" };
+      setSelectedImage(imageData);
+      setImagePreview(url);
+      setMediaType(isVideo ? "video" : "image");
+      setStep("edit");
+      addToRecents(url);
+    };
+    if (isVideo) reader.readAsDataURL(file);
+    else reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
   const handleCameraClick = () => {
-    if (imageInputRef.current) {
-      imageInputRef.current.click();
-    }
+    imageInputRef.current?.click();
+  };
+
+  const handleGalleryClick = () => {
+    galleryInputRef.current?.click();
+  };
+
+  const handleVideoClick = () => {
+    videoInputRef.current?.click();
   };
 
   const getFilterClass = (filterId) => {
@@ -106,36 +151,29 @@ export default function AddStory() {
 
     setIsUploading(true);
     try {
-      // Upload image if it's a local file
       let mediaUrl = selectedImage.url;
-      
-      if (selectedImage.url.startsWith('data:')) {
-        // Use uploadFromBase64 which matches the backend endpoint
-        const uploadResponse = await uploadService.uploadFromBase64(selectedImage.url, 'stories');
-        if (!uploadResponse?.url) {
-          throw new Error('Failed to upload image');
-        }
+
+      if (selectedImage.url.startsWith("data:")) {
+        const uploadResponse = await uploadService.uploadFromBase64(selectedImage.url, "stories");
+        if (!uploadResponse?.url) throw new Error("Failed to upload media");
         mediaUrl = uploadResponse.url;
       }
 
-      // Create story with the uploaded URL
       const storyResponse = await storyService.createStory({
         mediaUrl,
-        mediaType: 'image',
-        caption: textValue || '',
-        taggedUsers: taggedPeople.map(p => (typeof p === 'object' ? (p.uid || p._id || p.username) : p)).filter(Boolean)
+        mediaType: mediaType || "image",
+        caption: textValue || "",
+        taggedUsers: taggedPeople.map((p) => (typeof p === "object" ? p.uid || p._id || p.username : p)).filter(Boolean),
       });
 
-      if (!storyResponse) {
-        throw new Error('Failed to create story');
-      }
+      if (!storyResponse) throw new Error("Failed to create story");
 
-      toast.success('Story shared successfully!');
+      toast.success("Story shared successfully!");
       handleClose();
-      navigate('/home');
+      navigate("/home");
     } catch (error) {
-      console.error('Share story error:', error);
-      toast.error(error.message || 'Failed to share story');
+      console.error("Share story error:", error);
+      toast.error(error.message || "Failed to share story");
     } finally {
       setIsUploading(false);
     }
@@ -145,6 +183,7 @@ export default function AddStory() {
     setStep("select");
     setSelectedImage(null);
     setImagePreview(null);
+    setMediaType("image");
     setShowFilters(false);
     setShowText(false);
     setShowStickers(false);
@@ -152,6 +191,8 @@ export default function AddStory() {
     setTaggedPeople([]);
     setTextValue("");
     setTextColor("#FFFFFF");
+    setTextPosition({ x: 50, y: 50 });
+    setStickerOverlays([]);
     setFilter("none");
   };
 
@@ -176,21 +217,56 @@ export default function AddStory() {
           </div>
 
           {/* Recents Dropdown */}
-          <div className="px-4 pb-3">
-            <button className="flex items-center gap-1 text-white text-sm hover:text-primary transition">
+          <div className="px-4 pb-3 relative">
+            <button
+              type="button"
+              onClick={() => setShowRecentsDropdown(!showRecentsDropdown)}
+              className="flex items-center gap-1 text-white text-sm hover:text-primary transition"
+            >
               <span>Recents</span>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
+            {showRecentsDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowRecentsDropdown(false)} aria-hidden="true" />
+                <div className="absolute left-4 right-4 top-full mt-1 z-50 bg-gray-900 border border-gray-700 rounded-xl shadow-xl max-h-64 overflow-y-auto">
+                  {recents.length === 0 ? (
+                    <p className="p-4 text-gray-400 text-sm">No recent items</p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-1 p-2">
+                      {recents.map((url, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            handleImageSelect({ id: i, url, mediaType: url.startsWith("data:video") ? "video" : "image" });
+                            setShowRecentsDropdown(false);
+                          }}
+                          className="aspect-square rounded-lg overflow-hidden border border-gray-700 hover:border-primary"
+                        >
+                          {url.startsWith("data:video") ? (
+                            <video src={url} className="w-full h-full object-cover" muted />
+                          ) : (
+                            <img src={url} alt="" className="w-full h-full object-cover" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Image Grid */}
+        {/* Image/Video Grid */}
         <div className="p-4">
           <div className="grid grid-cols-3 gap-1">
-            {/* Camera Button */}
+            {/* Camera - opens device camera on mobile */}
             <button
+              type="button"
               onClick={handleCameraClick}
               className="aspect-square bg-gray-800 rounded-lg flex flex-col items-center justify-center gap-2 hover:bg-gray-700 transition border border-gray-700"
             >
@@ -198,24 +274,51 @@ export default function AddStory() {
               <span className="text-xs text-gray-400">Camera</span>
             </button>
 
-            {/* File Upload Button */}
+            {/* Gallery - pick from library (no capture) */}
             <button
-              onClick={() => imageInputRef.current?.click()}
+              type="button"
+              onClick={handleGalleryClick}
               className="aspect-square bg-gray-800 rounded-lg flex flex-col items-center justify-center gap-2 hover:bg-gray-700 transition border border-gray-700"
             >
               <ImageIcon className="w-8 h-8 text-white" />
               <span className="text-xs text-gray-400">Gallery</span>
             </button>
+
+            {/* Video - pick or capture video */}
+            <button
+              type="button"
+              onClick={handleVideoClick}
+              className="aspect-square bg-gray-800 rounded-lg flex flex-col items-center justify-center gap-2 hover:bg-gray-700 transition border border-gray-700"
+            >
+              <Video className="w-8 h-8 text-white" />
+              <span className="text-xs text-gray-400">Video</span>
+            </button>
           </div>
         </div>
 
-        {/* Hidden file input for camera */}
+        {/* Camera input (capture = camera on mobile) */}
         <input
           ref={imageInputRef}
           type="file"
           accept="image/*"
           capture="environment"
-          onChange={handleFileUpload}
+          onChange={(e) => { handleFileUpload(e, "image"); }}
+          className="hidden"
+        />
+        {/* Gallery input (no capture = file picker) */}
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          onChange={(e) => { handleFileUpload(e, "image"); }}
+          className="hidden"
+        />
+        {/* Video input */}
+        <input
+          ref={videoInputRef}
+          type="file"
+          accept="video/*"
+          onChange={(e) => { handleFileUpload(e, "video"); }}
           className="hidden"
         />
       </div>
@@ -243,25 +346,105 @@ export default function AddStory() {
         </button>
       </div>
 
-      {/* Image Preview with Filter */}
-      <div className="flex-1 min-h-0 flex items-center justify-center bg-black relative overflow-hidden">
-        <img
-          src={imagePreview}
-          alt="Story preview"
-          className={`max-w-full max-h-full object-contain ${getFilterClass(filter)}`}
-        />
+      {/* Image/Video Preview with Filter */}
+      <div
+        ref={previewContainerRef}
+        className="flex-1 min-h-0 flex items-center justify-center bg-black relative overflow-hidden select-none"
+        onMouseMove={(e) => {
+          if (!textDragging || !previewContainerRef.current) return;
+          const rect = previewContainerRef.current.getBoundingClientRect();
+          const x = ((e.clientX - rect.left) / rect.width) * 100;
+          const y = ((e.clientY - rect.top) / rect.height) * 100;
+          setTextPosition({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+        }}
+        onMouseUp={() => setTextDragging(false)}
+        onMouseLeave={() => setTextDragging(false)}
+        onTouchMove={(e) => {
+          if (!textDragging || !previewContainerRef.current || !e.touches[0]) return;
+          const rect = previewContainerRef.current.getBoundingClientRect();
+          const x = ((e.touches[0].clientX - rect.left) / rect.width) * 100;
+          const y = ((e.touches[0].clientY - rect.top) / rect.height) * 100;
+          setTextPosition({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+        }}
+        onTouchEnd={() => setTextDragging(false)}
+      >
+        {mediaType === "video" ? (
+          <video
+            src={imagePreview}
+            className={`max-w-full max-h-full object-contain ${getFilterClass(filter)}`}
+            loop
+            muted
+            playsInline
+            autoPlay
+          />
+        ) : (
+          <img
+            src={imagePreview}
+            alt="Story preview"
+            className={`max-w-full max-h-full object-contain ${getFilterClass(filter)}`}
+          />
+        )}
 
-        {/* Text Overlay */}
+        {/* Draggable Text Overlay */}
         {textValue && (
           <div
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            style={{ color: textColor }}
+            className="absolute cursor-move pointer-events-auto flex items-center justify-center"
+            style={{
+              left: `${textPosition.x}%`,
+              top: `${textPosition.y}%`,
+              transform: "translate(-50%, -50%)",
+              color: textColor,
+            }}
+            onMouseDown={(e) => { e.preventDefault(); setTextDragging(true); }}
+            onTouchStart={(e) => { setTextDragging(true); }}
           >
-            <p className="text-3xl md:text-4xl font-bold drop-shadow-2xl text-center px-4">
+            <p className="text-3xl md:text-4xl font-bold drop-shadow-2xl text-center px-4 whitespace-pre-wrap">
               {textValue}
             </p>
           </div>
         )}
+
+        {/* Sticker overlays (positioned, optionally draggable) */}
+        {stickerOverlays.map((s, index) => (
+          <div
+            key={s.id}
+            className="absolute cursor-move pointer-events-auto text-4xl select-none"
+            style={{
+              left: `${s.x}%`,
+              top: `${s.y}%`,
+              transform: "translate(-50%, -50%)",
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const rect = previewContainerRef.current?.getBoundingClientRect();
+              if (!rect) return;
+              const startPageX = e.clientX;
+              const startPageY = e.clientY;
+              const startSx = s.x;
+              const startSy = s.y;
+              const onMove = (ev) => {
+                const dx = ((ev.clientX - startPageX) / rect.width) * 100;
+                const dy = ((ev.clientY - startPageY) / rect.height) * 100;
+                setStickerOverlays((prev) =>
+                  prev.map((o, i) =>
+                    i === index
+                      ? { ...o, x: Math.max(5, Math.min(95, startSx + dx)), y: Math.max(5, Math.min(95, startSy + dy)) }
+                      : o
+                  )
+                );
+              };
+              const onUp = () => {
+                window.removeEventListener("mousemove", onMove);
+                window.removeEventListener("mouseup", onUp);
+              };
+              window.addEventListener("mousemove", onMove);
+              window.addEventListener("mouseup", onUp);
+            }}
+          >
+            {s.emoji}
+          </div>
+        ))}
       </div>
 
       {/* Editing Tools */}
@@ -384,7 +567,7 @@ export default function AddStory() {
           )}
         </AnimatePresence>
 
-        {/* Stickers */}
+        {/* Stickers - Add Emoji: insert into text when text panel open, else add as overlay on canvas */}
         <AnimatePresence>
           {showStickers && (
             <motion.div
@@ -397,8 +580,21 @@ export default function AddStory() {
                 {stickers.map((sticker, index) => (
                   <button
                     key={index}
+                    type="button"
                     onClick={() => {
-                      // Add sticker to image - placeholder
+                      if (showText) {
+                        setTextValue((prev) => prev + sticker);
+                      } else {
+                        setStickerOverlays((prev) => [
+                          ...prev,
+                          {
+                            id: Date.now() + index,
+                            emoji: sticker,
+                            x: 30 + (prev.length % 3) * 20,
+                            y: 40 + Math.floor(prev.length / 3) * 15,
+                          },
+                        ]);
+                      }
                     }}
                     className="flex-shrink-0 w-12 h-12 text-2xl hover:scale-110 transition"
                   >

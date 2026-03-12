@@ -6,18 +6,18 @@ import { API_ENDPOINTS } from '../config/api';
  */
 export const storyService = {
   /**
-   * Get active stories
+   * Get active stories (sends auth when available so backend can return viewed flag)
    */
   async getStories() {
     try {
-      const response = await api.get(API_ENDPOINTS.STORIES.LIST, {}, false);
+      const response = await api.get(API_ENDPOINTS.STORIES.LIST, {}, true);
       if (response.success && response.data) {
         return response.data.stories || [];
       }
       return [];
     } catch (error) {
       console.error('Get stories error:', error);
-      return []; // Return empty array instead of throwing
+      return [];
     }
   },
 

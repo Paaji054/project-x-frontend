@@ -28,16 +28,18 @@ export default function Stories({ onAddStory }) {
     try {
       setLoading(true);
       const data = await storyService.getStories();
-      // Ensure all stories have consistent id and image fields
       const normalizedStories = (data || []).map(story => ({
         ...story,
         id: story._id || story.id,
-        image: story.mediaUrl || story.image, // Map mediaUrl to image for StoryViewer
+        image: story.mediaUrl || story.image,
       }));
       setStories(normalizedStories);
+      // Seed viewed IDs from backend so view state persists across refresh
+      const viewedIds = (data || []).filter(s => s.viewed === true).map(s => s._id || s.id);
+      setViewedStoryIds(prev => [...new Set([...prev, ...viewedIds])]);
     } catch (err) {
       console.error('Error fetching stories:', err);
-      setStories([]); // Set empty array on error
+      setStories([]);
     } finally {
       setLoading(false);
     }
@@ -71,12 +73,14 @@ export default function Stories({ onAddStory }) {
     return tierStyles[tier] || tierStyles.gold;
   };
 
-  // Sort stories: unseen first, then seen (stable by id)
+  // Sort stories: unseen first, then by createdAt desc
   const sortedStories = [...stories].sort((a, b) => {
     const aSeen = viewedStoryIds.includes(a.id);
     const bSeen = viewedStoryIds.includes(b.id);
-    if (aSeen === bSeen) return a.id - b.id;
-    return aSeen ? 1 : -1;
+    if (aSeen !== bSeen) return aSeen ? 1 : -1;
+    const aTime = new Date(a.createdAt || 0).getTime();
+    const bTime = new Date(b.createdAt || 0).getTime();
+    return bTime - aTime;
   });
 
   // For the current user, avoid showing their story twice:
@@ -267,11 +271,12 @@ export default function Stories({ onAddStory }) {
           stories={stories}
           initialIndex={selectedStoryIndex}
           onClose={() => setSelectedStoryIndex(null)}
-          onStoryViewed={(storyId) =>
+          onStoryViewed={(storyId) => {
             setViewedStoryIds((prev) =>
               prev.includes(storyId) ? prev : [...prev, storyId]
-            )
-          }
+            );
+            storyService.markViewed(storyId).catch(() => {});
+          }}
           currentUserId={currentUserId}
           onStoryDeleted={(deletedStoryId) => {
             setStories((prev) => prev.filter((s) => (s._id || s.id) !== deletedStoryId));

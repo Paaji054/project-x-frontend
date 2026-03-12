@@ -345,14 +345,25 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                 onClick={() => setIsPaused(!isPaused)}
               >
                 <div className="relative w-full aspect-[9/16] max-h-[90vh] rounded-lg overflow-hidden bg-black">
-                  <img
-                    src={currentStory.mediaUrl || currentStory.image}
-                    alt={storyUsername || 'Story'}
-                    className="w-full h-full object-cover select-none"
-                    draggable="false"
-                    loading="eager"
-                    decoding="async"
-                  />
+                  {currentStory.mediaType === 'video' ? (
+                    <video
+                      src={currentStory.mediaUrl || currentStory.image}
+                      className="w-full h-full object-cover select-none"
+                      playsInline
+                      autoPlay
+                      muted
+                      loop
+                    />
+                  ) : (
+                    <img
+                      src={currentStory.mediaUrl || currentStory.image}
+                      alt={storyUsername || 'Story'}
+                      className="w-full h-full object-cover select-none"
+                      draggable="false"
+                      loading="eager"
+                      decoding="async"
+                    />
+                  )}
 
                   {/* Pause Indicator */}
                   {isPaused && (
