@@ -166,7 +166,7 @@ export const communityService = {
   },
 
   /**
-   * Add moderator to community
+   * Add moderator to community (requires creator). userId is the target user's uid.
    */
   async addModerator(communityId, userId) {
     try {
@@ -174,6 +174,48 @@ export const communityService = {
       return response;
     } catch (error) {
       console.error('Add moderator error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Remove moderator from community (creator only).
+   */
+  async removeModerator(communityId, userId) {
+    try {
+      const response = await api.delete(API_ENDPOINTS.COMMUNITIES.REMOVE_MODERATOR(communityId, userId));
+      return response;
+    } catch (error) {
+      console.error('Remove moderator error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get community members (owner or moderator only). Returns { members: [{ uid, username, displayName, avatar }] }.
+   */
+  async getMembers(communityId) {
+    try {
+      const response = await api.get(API_ENDPOINTS.COMMUNITIES.GET_MEMBERS(communityId));
+      if (response.success && response.data) {
+        return response.data.members ?? response.data ?? [];
+      }
+      return [];
+    } catch (error) {
+      console.error('Get community members error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Remove member from community (owner or moderator only).
+   */
+  async removeMember(communityId, userId) {
+    try {
+      const response = await api.delete(API_ENDPOINTS.COMMUNITIES.REMOVE_MEMBER(communityId, userId));
+      return response;
+    } catch (error) {
+      console.error('Remove member error:', error);
       throw error;
     }
   },

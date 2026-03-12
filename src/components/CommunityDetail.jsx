@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Globe, Pencil, Heart, X, Settings, Share2, Copy, Check } from "lucide-react";
+import { ArrowLeft, Globe, Pencil, Heart, X, Settings, Share2, Copy, Check, Trash2 } from "lucide-react";
 import ShareModal from "../components/ShareModal";
 import Comments from "../components/Comments";
 import commentIcon from "../assets/comment.svg";
@@ -17,6 +17,7 @@ import { postService } from "../services/postService";
 import { toast } from "react-hot-toast";
 import CommunitySettings from "./CommunitySettings";
 import CreatePost from "./CreatePost";
+import DeleteConfirmationModal from "./DeleteConfirmationModal";
 
 export default function CommunityDetail({ communityId, onViewUserProfile }) {
   const navigate = useNavigate();
@@ -39,6 +40,7 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
   const [passwordError, setPasswordError] = useState("");
   const [codeError, setCodeError] = useState("");
   const [_error, setError] = useState("");
+  const [postToDeleteId, setPostToDeleteId] = useState(null);
   
   // Community data state
   const [community, setCommunity] = useState(null);
@@ -219,6 +221,20 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
     } catch (err) {
       console.error("Error joining community:", err);
       toast.error("Failed to join community. Please try again.");
+    }
+  };
+
+  const handleDeleteCommunityPost = async (postId) => {
+    if (!postId) return;
+    try {
+      await postService.deletePost(String(postId));
+      setPosts((prev) => prev.filter((p) => String(p.id || p._id) !== String(postId)));
+      setPostToDeleteId(null);
+      toast.success("Post removed from community.");
+    } catch (err) {
+      console.error("Error deleting post:", err);
+      toast.error("Failed to delete post. Please try again.");
+      setPostToDeleteId(null);
     }
   };
 
@@ -547,19 +563,33 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
                 </p>
               </div>
 
-              {/* Rules */}
-              {community.rules && community.rules.length > 0 && (
-                <div>
-                  <h3 className="text-black dark:text-white font-semibold mb-2">Rules</h3>
-                  <ul className="space-y-1">
+              {/* Rules - always visible */}
+              <div className="bg-gray-100 dark:bg-[#121212] border border-black dark:border-gray-800 rounded-xl p-3 sm:p-4">
+                <h3 className="text-black dark:text-white font-semibold mb-2">Rules</h3>
+                {community.rules && community.rules.length > 0 ? (
+                  <ul className="space-y-1.5">
                     {community.rules.map((rule, index) => (
-                      <li key={index} className="text-sm text-gray-600 dark:text-gray-400">
-                        {index + 1}. {rule}
+                      <li key={index} className="text-sm text-gray-600 dark:text-gray-400 flex gap-2">
+                        <span className="text-primary font-medium flex-shrink-0">{index + 1}.</span>
+                        <span>{rule}</span>
                       </li>
                     ))}
                   </ul>
-                </div>
-              )}
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    No rules set yet.
+                    {canManageSettings && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveView("settings")}
+                        className="ml-1 text-primary font-medium hover:underline"
+                      >
+                        Add rules in Settings
+                      </button>
+                    )}
+                  </p>
+                )}
+              </div>
 
               {/* Community Code */}
               <div>
@@ -703,6 +733,18 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
                         {post.category}
                       </span>
                     )}
+                    {/* Delete post - owner/moderator only */}
+                    {canManageSettings && (
+                      <button
+                        type="button"
+                        onClick={() => setPostToDeleteId(post.id || post._id)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition"
+                        title="Delete post"
+                        aria-label="Delete post"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
 
                   {/* Post Title */}
@@ -797,50 +839,63 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
       {/* Share Modal */}
       <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} onViewUserProfile={onViewUserProfile} />
 
+      {/* Delete post confirmation (community owner/moderator) */}
+      <DeleteConfirmationModal
+        isOpen={!!postToDeleteId}
+        onClose={() => setPostToDeleteId(null)}
+        onConfirm={() => postToDeleteId && handleDeleteCommunityPost(postToDeleteId)}
+        title="Delete post?"
+        message="This post will be permanently removed from the community. This cannot be undone."
+        confirmLabel="Delete post"
+      />
+
       {/* Community Code Modal */}
       {showCodeModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-white dark:bg-[#121212] rounded-xl p-6 max-w-md w-full border border-black dark:border-gray-800">
-            <h2 className="text-xl font-semibold text-black dark:text-white mb-2">Enter Community Code</h2>
+          <div className="bg-white dark:bg-[#121212] rounded-2xl p-6 max-w-md w-full border border-gray-200 dark:border-gray-800 shadow-xl">
+            <h2 className="text-xl font-semibold text-black dark:text-white mb-1">Enter Community Code</h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Please enter the community code to join this community.
             </p>
             <div className="space-y-4">
               <div>
+                <label htmlFor="detail-code-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Community code
+                </label>
                 <input
+                  id="detail-code-input"
                   type="text"
                   value={codeInput}
                   onChange={(e) => {
-                    setCodeInput(e.target.value);
+                    setCodeInput(e.target.value.toUpperCase().slice(0, 6));
                     setCodeError("");
                   }}
-                  placeholder="Enter community code"
-                  className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-900 border border-black dark:border-gray-700 rounded-lg text-black dark:text-white placeholder-gray-500 focus:outline-none focus:border-primary transition"
+                  placeholder="e.g. ABC123"
+                  maxLength={6}
+                  className="w-full px-4 py-3 rounded-2xl bg-gray-100 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 text-black dark:text-white placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
                   autoFocus
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter") {
-                      handleCodeSubmit();
-                    }
-                  }}
+                  onKeyDown={(e) => e.key === "Enter" && handleCodeSubmit()}
                 />
                 {codeError && (
-                  <p className="text-sm text-red-500 mt-2">{codeError}</p>
+                  <p className="text-sm text-red-500 dark:text-red-400 mt-2">{codeError}</p>
                 )}
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-1">
                 <button
+                  type="button"
                   onClick={() => {
                     setShowCodeModal(false);
                     setCodeInput("");
                     setCodeError("");
                   }}
-                  className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition"
+                  className="flex-1 px-4 py-2.5 rounded-2xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleCodeSubmit}
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-700 transition"
+                  className="flex-1 px-4 py-2.5 rounded-2xl bg-primary text-white font-medium hover:bg-primary-700 transition"
                 >
                   Submit
                 </button>

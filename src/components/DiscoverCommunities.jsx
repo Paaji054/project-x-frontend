@@ -388,11 +388,11 @@ export default function DiscoverCommunities({ onBack }) {
         )}
       </div>
 
-      {/* Community Code Modal - shown for "Join with code" (no selected community) or when joining a private community from list */}
+      {/* Community Code Modal */}
       {showCodeModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-white dark:bg-[#121212] rounded-xl p-6 max-w-md w-full border border-black dark:border-gray-800">
-            <h2 className="text-xl font-semibold text-black dark:text-white mb-2">
+          <div className="bg-white dark:bg-[#121212] rounded-2xl p-6 max-w-md w-full border border-gray-200 dark:border-gray-800 shadow-xl">
+            <h2 className="text-xl font-semibold text-black dark:text-white mb-1">
               {selectedCommunity ? 'Enter Community Code' : 'Join with a code'}
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -402,41 +402,44 @@ export default function DiscoverCommunities({ onBack }) {
             </p>
             <div className="space-y-4">
               <div>
+                <label htmlFor="discover-code-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Community code
+                </label>
                 <input
+                  id="discover-code-input"
                   type="text"
                   value={codeInput}
                   onChange={(e) => {
-                    setCodeInput(e.target.value);
+                    setCodeInput(e.target.value.toUpperCase().slice(0, 6));
                     setCodeError("");
                   }}
-                  placeholder="Enter community code"
-                  className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-900 border border-black dark:border-gray-700 rounded-lg text-black dark:text-white placeholder-gray-500 focus:outline-none focus:border-primary transition"
+                  placeholder="e.g. ABC123"
+                  maxLength={6}
+                  className="w-full px-4 py-3 rounded-2xl bg-gray-100 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 text-black dark:text-white placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
                   autoFocus
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter") {
-                      handleCodeSubmit();
-                    }
-                  }}
+                  onKeyDown={(e) => e.key === "Enter" && handleCodeSubmit()}
                 />
                 {codeError && (
-                  <p className="text-sm text-red-500 mt-2">{codeError}</p>
+                  <p className="text-sm text-red-500 dark:text-red-400 mt-2">{codeError}</p>
                 )}
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-1">
                 <button
+                  type="button"
                   onClick={() => {
                     setShowCodeModal(false);
                     setCodeInput("");
                     setCodeError("");
                     setSelectedCommunity(null);
                   }}
-                  className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition"
+                  className="flex-1 px-4 py-2.5 rounded-2xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleCodeSubmit}
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-700 transition"
+                  className="flex-1 px-4 py-2.5 rounded-2xl bg-primary text-white font-medium hover:bg-primary-700 transition"
                 >
                   Submit
                 </button>

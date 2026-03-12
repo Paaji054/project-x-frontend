@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Settings, Upload, X, Plus, Trash2, Eye, EyeOff, Globe, Lock, Eye as EyeIcon, RefreshCw } from "lucide-react";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { communityService } from "../services/communityService";
+import { userService } from "../services/userService";
 import LiveBanner from "./LiveBanner";
 import LiveProfilePhoto from "./LiveProfilePhoto";
 
@@ -42,6 +43,8 @@ export default function CommunitySettings({ communityId, communitySlug, initialC
   const [moderators, setModerators] = useState([]);
   const [newModerator, setNewModerator] = useState("");
   const [passwordValidationError, setPasswordValidationError] = useState("");
+  const [members, setMembers] = useState([]);
+  const [membersLoading, setMembersLoading] = useState(false);
 
   // Fetch community data from API
   useEffect(() => {
@@ -114,10 +117,27 @@ export default function CommunitySettings({ communityId, communitySlug, initialC
     }
   }, [communityId, communitySlug, initialCommunity]);
 
+  // Fetch members when owner/moderator and community is loaded
+  useEffect(() => {
+    if (!communityId || !(isAdmin || isModerator)) return;
+    const fetchMembers = async () => {
+      setMembersLoading(true);
+      try {
+        const list = await communityService.getMembers(communityId);
+        setMembers(Array.isArray(list) ? list : []);
+      } catch {
+        setMembers([]);
+      } finally {
+        setMembersLoading(false);
+      }
+    };
+    fetchMembers();
+  }, [communityId, isAdmin, isModerator]);
+
   // Check if user is admin/moderator
   const userUid = user?.uid;
   const isAdmin = community?.creatorId === userUid;
-  const isModerator = moderators.includes(userUid);
+  const isModerator = moderators.some((m) => (typeof m === "string" ? m : m?.uid) === userUid);
 
   // Show loading state
   if (loading) {
@@ -281,8 +301,35 @@ export default function CommunitySettings({ communityId, communitySlug, initialC
     }
   };
 
-  const handleRemoveModerator = (modId) => {
-    setModerators(moderators.filter(mod => mod.id !== modId && mod.username !== modId));
+  const handleRemoveModerator = async (mod) => {
+    const userId = typeof mod === "string" ? mod : (mod?.uid ?? mod?.id);
+    if (!userId || !communityId) return;
+    try {
+      setError("");
+      await communityService.removeModerator(communityId, userId);
+      setModerators((prev) => prev.filter((m) => (typeof m === "string" ? m : m?.uid ?? m?.id) !== userId));
+      setSuccess("Moderator removed.");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      console.error("Error removing moderator:", err);
+      setError(err.response?.data?.error?.message || err.message || "Failed to remove moderator.");
+    }
+  };
+
+  const handleRemoveMember = async (member) => {
+    const userId = typeof member === "string" ? member : member?.uid;
+    if (!userId || !communityId) return;
+    if (userId === community?.creatorId) return;
+    try {
+      setError("");
+      await communityService.removeMember(communityId, userId);
+      setMembers((prev) => prev.filter((m) => (typeof m === "string" ? m : m?.uid) !== userId));
+      setSuccess("Member removed.");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      console.error("Error removing member:", err);
+      setError(err.response?.data?.error?.message || err.message || "Failed to remove member.");
+    }
   };
 
   const handleSaveChanges = async () => {
@@ -316,7 +363,6 @@ export default function CommunitySettings({ communityId, communitySlug, initialC
         icon: profilePreview,
         avatar: profilePreview,
         profileVideo: profileVideoPreview,
-        moderators: moderators,
         type: formData.communityType,
       };
 
@@ -794,8 +840,9 @@ export default function CommunitySettings({ communityId, communitySlug, initialC
                       <p className="text-xs sm:text-sm font-medium text-black dark:text-white truncate">{mod.username}</p>
                     </div>
                     <button
-                      onClick={() => handleRemoveModerator(mod.id || mod.username)}
+                      onClick={() => handleRemoveModerator(mod)}
                       className="p-1.5 sm:p-2 text-red-500 hover:bg-red-500/10 rounded transition flex-shrink-0"
+                      title="Remove moderator"
                     >
                       <X className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
@@ -826,6 +873,59 @@ export default function CommunitySettings({ communityId, communitySlug, initialC
                   Add
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Members - owner and moderators can view and remove */}
+          {(isAdmin || isModerator) && (
+            <div className="bg-white dark:bg-[#121212] border border-black dark:border-gray-800 rounded-xl p-4 sm:p-5 md:p-6">
+              <label className="block text-xs sm:text-sm font-medium text-black dark:text-white mb-3">
+                Members
+              </label>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
+                View and remove members. Only the owner can add moderators; moderators can remove members.
+              </p>
+              {membersLoading ? (
+                <div className="flex justify-center py-6">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+                </div>
+              ) : (
+                <div className="space-y-2 sm:space-y-3 max-h-60 overflow-y-auto">
+                  {members.map((member) => {
+                    const uid = typeof member === "string" ? member : member?.uid;
+                    const username = typeof member === "string" ? null : member?.username;
+                    const isCreator = uid === community?.creatorId;
+                    return (
+                      <div key={uid} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gray-100 dark:bg-gray-900 rounded-lg">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden flex-shrink-0 bg-gray-300 dark:bg-gray-700">
+                          {typeof member === "object" && member?.avatar && (
+                            <img src={member.avatar} alt="" className="w-full h-full object-cover" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs sm:text-sm font-medium text-black dark:text-white truncate">
+                            {username || uid || "Unknown"}
+                            {isCreator && <span className="ml-1 text-primary text-xs">(Owner)</span>}
+                          </p>
+                        </div>
+                        {!isCreator && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMember(member)}
+                            className="p-1.5 sm:p-2 text-red-500 hover:bg-red-500/10 rounded transition flex-shrink-0"
+                            title="Remove from community"
+                          >
+                            <X className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {members.length === 0 && !membersLoading && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 py-2">No members yet.</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

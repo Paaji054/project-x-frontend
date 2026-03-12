@@ -145,6 +145,9 @@ export const API_ENDPOINTS = {
     JOIN: (communityId) => `/api/communities/${communityId}/join`,
     LEAVE: (communityId) => `/api/communities/${communityId}/leave`,
     ADD_MODERATOR: (communityId, userId) => `/api/communities/${communityId}/moderators/${userId}`,
+    REMOVE_MODERATOR: (communityId, userId) => `/api/communities/${communityId}/moderators/${userId}`,
+    GET_MEMBERS: (communityId) => `/api/communities/${communityId}/members`,
+    REMOVE_MEMBER: (communityId, userId) => `/api/communities/${communityId}/members/${userId}`,
     BAN_USER: (communityId, userId) => `/api/communities/${communityId}/ban/${userId}`,
   },
   

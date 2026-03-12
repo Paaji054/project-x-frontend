@@ -106,30 +106,35 @@ export default function JoinedCommunities({ onDiscoverClick }) {
         </div>
 
         <div className="flex flex-wrap items-end gap-3">
-          {/* Join with code - inline on Communities page */}
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a]">
-              <Key className="w-4 h-4 text-primary flex-shrink-0" />
+          {/* Join with code - aligned with app design */}
+          <div className="flex flex-col gap-1.5 min-w-0">
+            <label htmlFor="join-community-code" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Have a code?
+            </label>
+            <div className="flex items-center gap-2 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#161616] px-3 py-2 shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+              <Key className="w-4 h-4 text-primary flex-shrink-0" aria-hidden />
               <input
+                id="join-community-code"
                 type="text"
                 value={joinCode}
                 onChange={(e) => {
                   setJoinCode(e.target.value.toUpperCase().slice(0, 6));
                   setJoinCodeError("");
                 }}
-                placeholder="Community code"
+                placeholder="e.g. ABC123"
                 maxLength={6}
-                className="w-28 px-2 py-1.5 rounded bg-white dark:bg-[#121212] border border-gray-300 dark:border-gray-600 text-black dark:text-white text-sm placeholder-gray-500 focus:outline-none focus:border-primary"
+                className="flex-1 min-w-0 w-24 sm:w-28 px-2 py-1.5 bg-transparent border-0 text-black dark:text-white text-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-0"
+                aria-label="Community code"
               />
               <button
                 onClick={handleJoinByCode}
                 disabled={joinCodeLoading}
-                className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-60 transition whitespace-nowrap"
+                className="px-3 py-1.5 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-60 transition whitespace-nowrap"
               >
                 {joinCodeLoading ? "Joining…" : "Join"}
               </button>
             </div>
-            {joinCodeError && <p className="text-sm text-red-500">{joinCodeError}</p>}
+            {joinCodeError && <p className="text-sm text-red-500 dark:text-red-400">{joinCodeError}</p>}
             {joinCodeSuccess && <p className="text-sm text-green-600 dark:text-green-400">{joinCodeSuccess}</p>}
           </div>
           <button
