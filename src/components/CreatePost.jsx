@@ -254,18 +254,8 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
-        // For community posts, skip crop step and go directly to edit
-        // Desktop goes to crop (or edit for community), mobile stays in gallery
-        if (window.innerWidth >= 768) {
-          if (communityId) {
-            // Community posts: skip crop, go to edit with original image
-            setCroppedImage(reader.result);
-            setStep("edit");
-          } else {
-            // Regular posts: go to crop
-            setStep("crop");
-          }
-        } else {
+        // Show preview first; user chooses when to edit/crop
+        if (window.innerWidth < 768) {
           setMobileStep("gallery");
         }
       };
@@ -1301,51 +1291,99 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
           className={`relative bg-[#0f0f0f] rounded-lg shadow-2xl overflow-hidden max-w-5xl w-full max-h-[90vh] flex flex-col border border-gray-800`}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Step 1: Upload */}
+          {/* Step 1: Upload & Preview */}
           {step === "upload" && (
-            <div className="flex flex-col items-center justify-center p-12 flex-1">
-              <h2 className="text-xl font-semibold mb-8 text-white">Create new post</h2>
+            <div className="flex flex-col items-center justify-center p-6 md:p-10 flex-1 w-full">
+              <h2 className="text-xl font-semibold mb-6 text-white">Create new post</h2>
 
-              <div
-                className={`w-full max-w-md border-2 border-dashed rounded-lg p-16 text-center cursor-pointer transition-colors ${isDragging
-                    ? "border-blue-500 bg-blue-500/10"
-                    : "border-gray-600 hover:border-gray-500"
-                  }`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <div className="flex flex-col items-center gap-4">
-                  {/* Upload icon from assets */}
-                  <div className="relative w-24 h-24 flex items-center justify-center">
-                    <img
-                      src={uploadIcon}
-                      alt="Upload"
-                      className="w-20 h-20 invert"
-                    />
-        </div>
-
-                  <p className="text-gray-300 text-lg">Drag photos and videos here</p>
-                  <button
-                    className="px-6 py-2 bg-[#A855F7] text-white rounded-lg font-semibold hover:bg-[#9333EA] transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      fileInputRef.current?.click();
-                    }}
+              {!imagePreview && (
+                <>
+                  <div
+                    className={`w-full max-w-md border-2 border-dashed rounded-lg p-10 md:p-16 text-center cursor-pointer transition-colors ${isDragging
+                        ? "border-blue-500 bg-blue-500/10"
+                        : "border-gray-600 hover:border-gray-500"
+                      }`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
                   >
-                    Select From Computer
-                  </button>
-                </div>
-              </div>
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="relative w-24 h-24 flex items-center justify-center">
+                        <img
+                          src={uploadIcon}
+                          alt="Upload"
+                          className="w-20 h-20 invert"
+                        />
+                      </div>
+                      <p className="text-gray-300 text-lg">Drag photos and videos here</p>
+                      <button
+                        className="px-6 py-2 bg-[#A855F7] text-white rounded-lg font-semibold hover:bg-[#9333EA] transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fileInputRef.current?.click();
+                        }}
+                      >
+                        Select From Computer
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    onChange={handleFileInputChange}
+                    className="hidden"
+                  />
+                </>
+              )}
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,video/*"
-                onChange={handleFileInputChange}
-                className="hidden"
-              />
+              {imagePreview && (
+                <div className="w-full max-w-3xl flex flex-col md:flex-row gap-6 items-stretch">
+                  <div className="flex-1 bg-black rounded-lg overflow-hidden flex items-center justify-center">
+                    {selectedFile?.type?.startsWith('video/') ? (
+                      <video
+                        src={imagePreview}
+                        controls
+                        className="max-w-full max-h-[60vh] object-contain"
+                      />
+                    ) : (
+                      <img
+                        src={imagePreview}
+                        alt="Selected preview"
+                        className="max-w-full max-h-[60vh] object-contain"
+                      />
+                    )}
+                  </div>
+                  <div className="w-full md:w-64 flex flex-col gap-3">
+                    <button
+                      className="w-full px-4 py-2.5 rounded-lg bg-[#A855F7] text-white font-semibold hover:bg-[#9333EA] transition-colors"
+                      onClick={() => {
+                        if (selectedFile?.type?.startsWith('video/')) {
+                          setStep("final");
+                        } else if (communityId) {
+                          setCroppedImage(imagePreview);
+                          setStep("edit");
+                        } else {
+                          setStep("crop");
+                        }
+                      }}
+                    >
+                      {selectedFile?.type?.startsWith('video/') ? "Next" : "Edit & Crop"}
+                    </button>
+                    <button
+                      className="w-full px-4 py-2.5 rounded-lg border border-gray-600 text-gray-200 hover:bg-gray-900 transition-colors"
+                      onClick={() => {
+                        setSelectedFile(null);
+                        setImagePreview(null);
+                        setCroppedImage(null);
+                      }}
+                    >
+                      Choose another
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1650,32 +1688,42 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
 
               {/* Final Content */}
               <div className="flex-1 flex overflow-hidden relative min-h-0">
-                {/* Image Preview */}
+                {/* Media Preview */}
                 <div className="flex-1 bg-black flex items-center justify-center relative">
-                  <img
-                    src={croppedImage || imagePreview}
-                    alt="Post preview"
-                    className="max-w-full max-h-full object-contain cursor-pointer relative z-10"
-                    style={getImageStyle()}
-                    onClick={() => setShowTagPeopleModal(true)}
-                  />
-                  {getVignetteStyle() && (
-                    <div
-                      className="absolute inset-0 pointer-events-none z-20"
-                      style={getVignetteStyle()}
+                  {selectedFile?.type?.startsWith('video/') ? (
+                    <video
+                      src={imagePreview}
+                      controls
+                      className="max-w-full max-h-full object-contain relative z-10"
                     />
+                  ) : (
+                    <>
+                      <img
+                        src={croppedImage || imagePreview}
+                        alt="Post preview"
+                        className="max-w-full max-h-full object-contain cursor-pointer relative z-10"
+                        style={getImageStyle()}
+                        onClick={() => setShowTagPeopleModal(true)}
+                      />
+                      {getVignetteStyle() && (
+                        <div
+                          className="absolute inset-0 pointer-events-none z-20"
+                          style={getVignetteStyle()}
+                        />
+                      )}
+                      {taggedPeople.length > 0 && (
+                        <div className="absolute top-4 left-4 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                          {taggedPeople.length} {taggedPeople.length === 1 ? "person" : "people"} tagged
+                        </div>
+                      )}
+                      <div
+                        className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black/70 text-white text-xs px-3 py-2 rounded cursor-pointer hover:bg-black/90"
+                        onClick={() => setShowTagPeopleModal(true)}
+                      >
+                        Click photo to tag people
+                      </div>
+                    </>
                   )}
-                  {taggedPeople.length > 0 && (
-                    <div className="absolute top-4 left-4 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                      {taggedPeople.length} {taggedPeople.length === 1 ? "person" : "people"} tagged
-                    </div>
-                  )}
-                  <div
-                    className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black/70 text-white text-xs px-3 py-2 rounded cursor-pointer hover:bg-black/90"
-                    onClick={() => setShowTagPeopleModal(true)}
-                  >
-                    Click photo to tag people
-                  </div>
                 </div>
 
                 {/* Settings Sidebar */}
@@ -1699,6 +1747,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                         value={caption}
                         onChange={handleCaptionChange}
                         className="w-full resize-none outline-none text-sm text-white placeholder-gray-500 bg-transparent"
+                        style={fontFamily ? { fontFamily } : undefined}
                         rows={10}
                         maxLength={2200}
                       />
@@ -3043,6 +3092,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                     value={caption}
                     onChange={handleCaptionChange}
                     className="w-full resize-none outline-none text-sm text-white placeholder-gray-500 bg-transparent"
+                    style={fontFamily ? { fontFamily } : undefined}
                     rows={4}
                     maxLength={2200}
                   />

@@ -151,13 +151,14 @@ export default function ExplorePage({ onViewUserProfile }) {
     setSelectedPost(null);
   };
 
-  const handleAddComment = async (commentText) => {
+  const handleAddComment = async (commentText, parentId = null) => {
     if (!activePostId || !commentText.trim()) return;
 
     try {
       const response = await postService.addComment(activePostId, { 
         text: commentText,
-        content: commentText 
+        content: commentText,
+        ...(parentId ? { parentId } : {}),
       });
 
       const newComment = response.comment || response.data || response;
@@ -375,6 +376,7 @@ export default function ExplorePage({ onViewUserProfile }) {
             onDeleteComment={handleDeleteComment}
             currentUserId={currentUserId}
             postId={activePostId}
+            commentsDisabled={activePostId ? !!posts.find(p => String(p.id || p._id) === String(activePostId))?.turnOffCommenting : false}
           />
         </>
       )}

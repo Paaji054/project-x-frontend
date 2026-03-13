@@ -9,7 +9,7 @@ import ReportModal from "./ReportModal";
 import { postService } from "../services/postService";
 import { toast } from "react-hot-toast";
 
-export default function Comments({ isOpen, onClose, variant = "sidebar", initialComments = [], onViewUserProfile, onAddComment, onLikeComment, onDeleteComment, currentUserId, postId, postOwnerId }) {
+export default function Comments({ isOpen, onClose, variant = "sidebar", initialComments = [], onViewUserProfile, onAddComment, onLikeComment, onDeleteComment, currentUserId, postId, postOwnerId, commentsDisabled = false }) {
   const [newComment, setNewComment] = useState("");
   const [comments, setComments] = useState(initialComments);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -127,6 +127,10 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
   };
 
   const handleSendComment = async () => {
+    if (commentsDisabled) {
+      toast.error("Comments are turned off for this post.");
+      return;
+    }
     if (!newComment.trim() || isSubmitting) return;
 
     const commentText = newComment.trim();
@@ -391,7 +395,11 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
         transition={{ delay: 0.2, duration: 0.3 }}
         className="border-t border-gray-200 dark:border-gray-800 p-3 md:p-5 bg-white dark:bg-[#0f0f0f] flex-shrink-0"
       >
-        {replyingTo && (
+        {commentsDisabled ? (
+          <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 px-2">
+            Comments are turned off for this post.
+          </p>
+        ) : replyingTo && (
           <div className="flex items-center gap-2 mb-2 px-2 text-xs text-gray-500">
             <Reply className="w-3 h-3" />
             <span>Replying to <span className="font-semibold text-black dark:text-white">@{replyingTo.username}</span></span>

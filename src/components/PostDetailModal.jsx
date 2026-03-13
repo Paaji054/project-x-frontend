@@ -445,7 +445,12 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                       >
                         {username}
                       </button>
-                      <span className="text-gray-700 dark:text-gray-300">{caption}</span>
+                      <span
+                        className="text-gray-700 dark:text-gray-300"
+                        style={post?.fontFamily ? { fontFamily: post.fontFamily } : undefined}
+                      >
+                        {caption}
+                      </span>
                     </p>
                   </div>
                 )}

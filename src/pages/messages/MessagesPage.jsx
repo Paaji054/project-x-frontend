@@ -853,7 +853,7 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
                     /* Shared Post Card - preview with image, caption, metadata */
                     (() => {
                       const preview = message.sharedPostId ? sharedPostPreviews[message.sharedPostId] : null;
-                      const mediaUrl = preview?.imageUrl || preview?.image || preview?.images?.[0] || message.mediaUrl;
+                      const mediaUrl = preview?.imageUrl || preview?.image || preview?.images?.[0];
                       const caption = preview?.caption || '';
                       const username = preview?.user?.username || preview?.author?.username || '';
                       return (
