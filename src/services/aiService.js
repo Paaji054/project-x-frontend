@@ -6,6 +6,19 @@ import { API_ENDPOINTS } from '../config/api';
  */
 export const aiService = {
   /**
+   * Get AI status (e.g. whether image generation is configured)
+   */
+  async getStatus() {
+    try {
+      const response = await api.get(API_ENDPOINTS.AI.STATUS, {}, false);
+      return response.success ? response.data : null;
+    } catch (error) {
+      console.error('Get AI status error:', error);
+      return null;
+    }
+  },
+
+  /**
    * Get credit costs for AI features
    */
   async getCreditCosts() {

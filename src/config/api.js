@@ -84,6 +84,7 @@ export const API_ENDPOINTS = {
   // AI
   AI: {
     CREDIT_COSTS: '/api/ai/credit-costs',
+    STATUS: '/api/ai/status',
     GENERATE_IMAGE: '/api/ai/generate-image',
     GENERATE_CAPTION: '/api/ai/generate-caption',
     GENERATE_BIO: '/api/ai/generate-bio',

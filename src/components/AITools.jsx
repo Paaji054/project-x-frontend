@@ -54,7 +54,8 @@ const AITools = () => {
       await loadInitialData();
       toast.success('Image generated!');
     } catch (err) {
-      toast.error(err.message || 'Failed to generate image');
+      const msg = err?.data?.error?.message || err?.message || 'Failed to generate image';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -161,8 +162,15 @@ const AITools = () => {
     if (!result) return null;
     const { type, data } = result;
 
-    if (type === 'image' && data?.imageUrl) {
-      return <img src={data.imageUrl} alt="Generated" className="w-full rounded-xl" />;
+    if (type === 'image' && (data?.imageUrl || data?.url)) {
+      return (
+        <div className="space-y-2">
+          <img src={data.imageUrl || data.url} alt="Generated" className="w-full rounded-xl" />
+          {data.metadata?.prompt && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">Prompt: {data.metadata.prompt}</p>
+          )}
+        </div>
+      );
     }
     if (type === 'avatar' && data?.avatarUrl) {
       return <img src={data.avatarUrl} alt="Avatar" className="w-full rounded-xl" />;
