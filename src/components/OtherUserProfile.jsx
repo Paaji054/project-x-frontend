@@ -44,10 +44,10 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
   const [followersList, setFollowersList] = useState([]);
   const [followingList, setFollowingList] = useState([]);
 
-  // Dynamic counts based on array lengths or API data
-  const postsCount = userData?.stats?.posts || posts.length;
-  const followersCount = userData?.stats?.followers || followersList.length;
-  const followingCount = userData?.stats?.following || followingList.length;
+  // Dynamic counts based on stats (fallback to arrays only if stats missing)
+  const postsCount = userData?.stats?.posts ?? posts.length;
+  const followersCount = userData?.stats?.followers ?? followersList.length;
+  const followingCount = userData?.stats?.following ?? followingList.length;
 
   // Fetch user profile data with optimized parallel loading
   const fetchUserProfile = async () => {

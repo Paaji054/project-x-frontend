@@ -39,10 +39,10 @@ export default function ProfilePage({ onLogout, onViewUserProfile }) {
   const [followersList, setFollowersList] = useState([]);
   const [followingList, setFollowingList] = useState([]);
 
-  // Dynamic counts based on array lengths or API data
-  const postsCount = profileData?.stats?.posts || posts.length;
-  const followersCount = profileData?.stats?.followers || followersList.length;
-  const followingCount = profileData?.stats?.following || followingList.length;
+  // Dynamic counts based on stats (fallback to arrays only if stats missing)
+  const postsCount = profileData?.stats?.posts ?? posts.length;
+  const followersCount = profileData?.stats?.followers ?? followersList.length;
+  const followingCount = profileData?.stats?.following ?? followingList.length;
 
   const hasFetchedProfile = React.useRef(false);
 
