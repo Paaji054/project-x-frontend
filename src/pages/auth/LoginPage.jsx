@@ -236,8 +236,10 @@ export default function LoginPage() {
     };
   }, []);
 
-  // A/B button background music: A = soft track 1, B = soft track 2 (instrumental, no lyrics)
-  const handleActionButtonA = () => {
+  // A/B button background music: A = track 1, B = track 2 (play on click, no code/response UI)
+  const handleActionButtonA = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (activeTrackRef.current === 'A') {
       if (audioARef.current) {
         audioARef.current.pause();
@@ -250,13 +252,17 @@ export default function LoginPage() {
       audioBRef.current.pause();
       audioBRef.current.currentTime = 0;
     }
-    if (audioARef.current) {
-      audioARef.current.play().catch(() => {});
+    const el = audioARef.current;
+    if (el) {
+      el.volume = 0.4;
+      el.play().catch(() => {});
       activeTrackRef.current = 'A';
     }
   };
 
-  const handleActionButtonB = () => {
+  const handleActionButtonB = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (activeTrackRef.current === 'B') {
       if (audioBRef.current) {
         audioBRef.current.pause();
@@ -269,8 +275,10 @@ export default function LoginPage() {
       audioARef.current.pause();
       audioARef.current.currentTime = 0;
     }
-    if (audioBRef.current) {
-      audioBRef.current.play().catch(() => {});
+    const el = audioBRef.current;
+    if (el) {
+      el.volume = 0.4;
+      el.play().catch(() => {});
       activeTrackRef.current = 'B';
     }
   };
@@ -2059,23 +2067,27 @@ export default function LoginPage() {
                 <button className="d-pad-btn d-pad-down"></button>
               </div>
               <div className="action-buttons">
-                {/* Soft instrumental background music - A and B play different tracks */}
+                {/* Background music: A and B play different tracks (CORS-friendly sources) */}
                 <audio
                   ref={audioARef}
-                  src="https://cdn.pixabay.com/audio/2022/05/27/audio_3062b2f282.mp3"
+                  src="https://cdn.jsdelivr.net/gh/captbaritone/webamp@43434d82cfe0e37286dbbe0666072dc3190a83bc/mp3/llama-2.91.mp3"
+                  crossOrigin="anonymous"
                   loop
-                  preload="metadata"
-                  title="Soft background music A"
+                  preload="auto"
+                  playsInline
+                  title="Background music A"
                 />
                 <audio
                   ref={audioBRef}
-                  src="https://cdn.pixabay.com/audio/2022/08/04/audio_3816f2f818.mp3"
+                  src="https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3"
+                  crossOrigin="anonymous"
                   loop
-                  preload="metadata"
-                  title="Soft background music B"
+                  preload="auto"
+                  playsInline
+                  title="Background music B"
                 />
-                <button type="button" className="action-btn" onClick={handleActionButtonA} aria-label="Play or pause soft background music A">A</button>
-                <button type="button" className="action-btn" onClick={handleActionButtonB} aria-label="Play or pause soft background music B">B</button>
+                <button type="button" className="action-btn" onClick={handleActionButtonA} aria-label="Play or pause background music A">A</button>
+                <button type="button" className="action-btn" onClick={handleActionButtonB} aria-label="Play or pause background music B">B</button>
               </div>
             </div>
 
