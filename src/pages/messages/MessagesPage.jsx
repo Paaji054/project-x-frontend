@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { ArrowLeft, Send, Edit, X, Search, Loader2 } from "lucide-react";
 import LiveProfilePhoto from "../../components/LiveProfilePhoto";
 import { getProfileVideoUrl } from "../../utils/profileVideos";
@@ -36,7 +37,9 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
     }
   }); // key: chat id -> theme key
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [themePickerPosition, setThemePickerPosition] = useState(null);
   const themePickerRef = useRef(null);
+  const themePickerDropdownRef = useRef(null);
   const messagesEndRef = useRef(null);
   const activeChatRef = useRef(null);
 
@@ -449,13 +452,27 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
     }
   };
 
-  // Close theme picker on outside click
+  // Position theme picker when it opens (so we can render in a portal and avoid overflow clipping)
+  useLayoutEffect(() => {
+    if (!showThemePicker || !themePickerRef.current) {
+      setThemePickerPosition(null);
+      return;
+    }
+    const rect = themePickerRef.current.getBoundingClientRect();
+    const dropdownWidth = 256; // w-64
+    setThemePickerPosition({
+      top: rect.bottom + 8,
+      left: Math.min(rect.right - dropdownWidth, window.innerWidth - dropdownWidth - 16),
+    });
+  }, [showThemePicker]);
+
+  // Close theme picker on outside click (button and portal dropdown count as "inside")
   useEffect(() => {
     if (!showThemePicker) return;
     const handler = (e) => {
-      if (themePickerRef.current && !themePickerRef.current.contains(e.target)) {
-        setShowThemePicker(false);
-      }
+      const insideButton = themePickerRef.current?.contains(e.target);
+      const insideDropdown = themePickerDropdownRef.current?.contains(e.target);
+      if (!insideButton && !insideDropdown) setShowThemePicker(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -796,9 +813,13 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
                   aria-label="Change chat theme"
                 >
                   <img src={themeIcon} alt="theme" className="w-5 h-5 dark:invert" />
-              </button>
-                {showThemePicker && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#0f0f0f] border border-black dark:border-gray-800 rounded-xl shadow-2xl p-3 z-20">
+                </button>
+                {showThemePicker && themePickerPosition && createPortal(
+                  <div
+                    ref={themePickerDropdownRef}
+                    className="w-64 bg-white dark:bg-[#0f0f0f] border border-black dark:border-gray-800 rounded-xl shadow-2xl p-3"
+                    style={{ position: "fixed", top: themePickerPosition.top, left: themePickerPosition.left, zIndex: 9999 }}
+                  >
                     <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">Chat themes</p>
                     <div className="flex items-center gap-3">
                       <button
@@ -813,7 +834,7 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
                         className={`w-14 h-14 rounded-full border-2 overflow-hidden flex-shrink-0 ${currentTheme === "cat" ? "border-primary" : "border-gray-300 dark:border-gray-700"}`}
                         style={{ backgroundImage: `url(${catTheme})`, backgroundSize: "cover", backgroundPosition: "center" }}
                         aria-label="Cat theme"
-              />
+                      />
                       <button
                         onClick={() => handleSelectTheme("xoxo")}
                         className={`w-14 h-14 rounded-full border-2 overflow-hidden flex-shrink-0 ${currentTheme === "xoxo" ? "border-primary" : "border-gray-300 dark:border-gray-700"}`}
@@ -821,7 +842,8 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
                         aria-label="XOXO theme"
                       />
                     </div>
-                  </div>
+                  </div>,
+                  document.body
                 )}
               </div>
             </div>
