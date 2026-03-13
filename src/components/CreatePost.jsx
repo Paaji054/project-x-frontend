@@ -1740,14 +1740,23 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
 
                   {/* Scrollable Content */}
                   <div className="flex-1 overflow-y-auto relative">
-                    {/* Caption */}
-                    <div className="px-4 py-3 border-b border-gray-800 relative">
+                    {/* Caption (preview uses palette background + text color) */}
+                    <div
+                      className="px-4 py-3 border-b border-gray-800 relative rounded-lg min-h-[120px]"
+                      style={{
+                        ...(colorPalette.background ? { backgroundColor: colorPalette.background } : {}),
+                        ...(colorPalette.text ? { color: colorPalette.text } : {}),
+                      }}
+                    >
                       <textarea
                         placeholder="Write a caption..."
                         value={caption}
                         onChange={handleCaptionChange}
-                        className="w-full resize-none outline-none text-sm text-white placeholder-gray-500 bg-transparent"
-                        style={fontFamily ? { fontFamily } : undefined}
+                        className="w-full resize-none outline-none text-sm bg-transparent placeholder-opacity-60"
+                        style={{
+                          ...(fontFamily ? { fontFamily } : {}),
+                          ...(colorPalette.text ? { color: colorPalette.text } : { color: 'inherit' }),
+                        }}
                         rows={10}
                         maxLength={2200}
                       />
@@ -1809,12 +1818,44 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                       </div>
                     </div>
 
-                    {/* Color Palette */}
+                    {/* Color Palette — Option 1: Background color, Option 2: Text color */}
                     <div className="px-3 lg:px-4 py-3 border-b border-gray-800">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-3">
                         <Palette className="w-4 h-4 text-white" />
                         <span className="text-sm text-white font-medium">Color Palette</span>
                       </div>
+                      <p className="text-xs text-gray-400 mb-3">Set the post background and text color.</p>
+
+                      {/* Option 1: Background color */}
+                      <div className="mb-3">
+                        <label className="text-xs text-gray-400 block mb-1.5">1. Background color</label>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <input
+                            type="color"
+                            value={colorPalette.background || '#ffffff'}
+                            onChange={(e) => setColorPalette((p) => ({ ...p, background: e.target.value }))}
+                            className="w-9 h-9 rounded-lg border border-gray-600 cursor-pointer bg-transparent"
+                          />
+                          <span className="text-xs text-gray-500 font-mono">{colorPalette.background || '—'}</span>
+                        </div>
+                      </div>
+
+                      {/* Option 2: Text color */}
+                      <div className="mb-3">
+                        <label className="text-xs text-gray-400 block mb-1.5">2. Text color</label>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <input
+                            type="color"
+                            value={colorPalette.text || '#000000'}
+                            onChange={(e) => setColorPalette((p) => ({ ...p, text: e.target.value }))}
+                            className="w-9 h-9 rounded-lg border border-gray-600 cursor-pointer bg-transparent"
+                          />
+                          <span className="text-xs text-gray-500 font-mono">{colorPalette.text || '—'}</span>
+                        </div>
+                      </div>
+
+                      {/* Presets (set both background + text) */}
+                      <p className="text-xs text-gray-400 mb-1.5">Presets</p>
                       <div className="grid grid-cols-4 gap-1.5 mb-2">
                         {PALETTE_PRESETS.map((preset) => (
                           <button
@@ -3085,14 +3126,23 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
 
               {/* Options */}
               <div className="flex-1 bg-black relative overflow-y-auto">
-                {/* Caption */}
-                <div className="px-4 py-3 border-b border-gray-800 relative">
+                {/* Caption (preview uses palette background + text color) */}
+                <div
+                  className="px-4 py-3 border-b border-gray-800 relative rounded-lg min-h-[80px]"
+                  style={{
+                    ...(colorPalette.background ? { backgroundColor: colorPalette.background } : {}),
+                    ...(colorPalette.text ? { color: colorPalette.text } : {}),
+                  }}
+                >
                   <textarea
                     placeholder="Add a caption..."
                     value={caption}
                     onChange={handleCaptionChange}
-                    className="w-full resize-none outline-none text-sm text-white placeholder-gray-500 bg-transparent"
-                    style={fontFamily ? { fontFamily } : undefined}
+                    className="w-full resize-none outline-none text-sm bg-transparent placeholder-opacity-60"
+                    style={{
+                      ...(fontFamily ? { fontFamily } : {}),
+                      ...(colorPalette.text ? { color: colorPalette.text } : { color: 'inherit' }),
+                    }}
                     rows={4}
                     maxLength={2200}
                   />
@@ -3182,12 +3232,43 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                   </select>
                 </div>
 
-                {/* Color Palette (Mobile) */}
+                {/* Color Palette (Mobile) — Option 1: Background, Option 2: Text */}
                 <div className="px-4 py-3 border-b border-gray-800">
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-2 mb-2">
                     <Palette className="w-4 h-4 text-white" />
                     <span className="text-sm text-white font-medium">Color Palette</span>
                   </div>
+                  <p className="text-xs text-gray-400 mb-3">Set the post background and text color.</p>
+
+                  {/* Option 1: Background color */}
+                  <div className="mb-3">
+                    <label className="text-xs text-gray-400 block mb-1.5">1. Background color</label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        type="color"
+                        value={colorPalette.background || '#ffffff'}
+                        onChange={(e) => setColorPalette((p) => ({ ...p, background: e.target.value }))}
+                        className="w-9 h-9 rounded-lg border border-gray-600 cursor-pointer bg-transparent"
+                      />
+                      <span className="text-xs text-gray-500 font-mono">{colorPalette.background || '—'}</span>
+                    </div>
+                  </div>
+
+                  {/* Option 2: Text color */}
+                  <div className="mb-3">
+                    <label className="text-xs text-gray-400 block mb-1.5">2. Text color</label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        type="color"
+                        value={colorPalette.text || '#000000'}
+                        onChange={(e) => setColorPalette((p) => ({ ...p, text: e.target.value }))}
+                        className="w-9 h-9 rounded-lg border border-gray-600 cursor-pointer bg-transparent"
+                      />
+                      <span className="text-xs text-gray-500 font-mono">{colorPalette.text || '—'}</span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-gray-400 mb-1.5">Presets</p>
                   <div className="grid grid-cols-4 gap-2 mb-3">
                     {PALETTE_PRESETS.map((preset) => (
                       <button
