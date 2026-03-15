@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { authService } from "../../services/authService";
+import { toast } from "react-hot-toast";
 
 export default function RegisterPage({ onSwitchToLogin }) {
   const navigate = useNavigate();
@@ -379,12 +380,12 @@ export default function RegisterPage({ onSwitchToLogin }) {
           navigate('/login', { state: { registered: true } });
         }, 800);
       } else {
-        setError(response.message || "Registration failed. Please try again.");
+        toast.error(response.message || "Registration failed. Please try again.");
         triggerErrorAnimation();
       }
     } catch (err) {
       console.error('Signup error:', err);
-      setError(err.message || "Registration failed. Please try again.");
+      toast.error(err.message || "Registration failed. Please try again.");
       triggerErrorAnimation();
     } finally {
       setIsLoading(false);

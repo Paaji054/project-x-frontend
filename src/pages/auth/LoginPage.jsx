@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { authService } from "../../services/authService";
+import { toast } from "react-hot-toast";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -42,7 +43,7 @@ export default function LoginPage() {
         unauthorized: "Sign in was not authorized. Please try again.",
         server_error: "Something went wrong. Please try again.",
       };
-      setError(messages[authError] || "Sign in did not complete. Please try again.");
+      toast.error(messages[authError] || "Sign in did not complete. Please try again.");
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -375,7 +376,7 @@ export default function LoginPage() {
           navigate(redirectTo, { replace: true, state: redirectState });
         }, 500);
       } else {
-        setError(response.message || "Login failed. Please try again.");
+        toast.error(response.message || "Login failed. Please try again.");
         triggerErrorAnimation();
       }
     } catch (err) {
@@ -384,9 +385,8 @@ export default function LoginPage() {
       const isUnregistered = err.status === 404 || (typeof msg === 'string' && msg.toLowerCase().includes('create an account'));
       if (isUnregistered) {
         setShowUnregisteredModal(true);
-        setError('');
       } else {
-        setError(msg);
+        toast.error(msg);
         triggerErrorAnimation();
       }
     } finally {
