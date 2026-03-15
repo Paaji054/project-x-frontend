@@ -93,9 +93,12 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
 
   // Check if user is admin/moderator
   // Backend uses creatorId field which contains the user's uid, not username
-  const userUid = user?.uid;
+  // After enrichment, community.moderators is an array of objects {uid, username, avatar}, not strings
+  const userUid = currentUserId;
   const isAdmin = community?.creatorId === userUid;
-  const isModerator = community?.moderators?.includes(userUid);
+  const isModerator = community?.moderators?.some(
+    (m) => (typeof m === "string" ? m : m?.uid) === userUid
+  );
   const canManageSettings = isAdmin || isModerator;
 
   // Loading state
@@ -733,8 +736,8 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
                         {post.category}
                       </span>
                     )}
-                    {/* Delete post - owner/moderator only */}
-                    {canManageSettings && (
+                    {/* Delete post - owner/moderator OR the post author */}
+                    {(canManageSettings || String(post.userId) === String(currentUserId)) && (
                       <button
                         type="button"
                         onClick={() => setPostToDeleteId(post.id || post._id)}

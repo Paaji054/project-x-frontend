@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Settings, Upload, X, Plus, Trash2, Eye, EyeOff, Globe, Lock, Eye as EyeIcon, RefreshCw } from "lucide-react";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useAuth } from "../context/AuthContext";
 import { communityService } from "../services/communityService";
 import { userService } from "../services/userService";
 import LiveBanner from "./LiveBanner";
@@ -9,7 +10,8 @@ import LiveProfilePhoto from "./LiveProfilePhoto";
 
 export default function CommunitySettings({ communityId, communitySlug, initialCommunity, setActiveView }) {
   const navigate = useNavigate();
-  const { username, user } = useUserProfile();
+  const { username, profile } = useUserProfile();
+  const { user: authUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -117,6 +119,11 @@ export default function CommunitySettings({ communityId, communitySlug, initialC
     }
   }, [communityId, communitySlug, initialCommunity]);
 
+  // Check if user is admin/moderator — must be declared BEFORE the useEffect that uses them
+  const userUid = authUser?.uid || authUser?.id || profile?.uid || profile?.id;
+  const isAdmin = community?.creatorId === userUid;
+  const isModerator = moderators.some((m) => (typeof m === "string" ? m : m?.uid) === userUid);
+
   // Fetch members when owner/moderator and community is loaded
   useEffect(() => {
     if (!communityId || !(isAdmin || isModerator)) return;
@@ -133,11 +140,6 @@ export default function CommunitySettings({ communityId, communitySlug, initialC
     };
     fetchMembers();
   }, [communityId, isAdmin, isModerator]);
-
-  // Check if user is admin/moderator
-  const userUid = user?.uid;
-  const isAdmin = community?.creatorId === userUid;
-  const isModerator = moderators.some((m) => (typeof m === "string" ? m : m?.uid) === userUid);
 
   // Show loading state
   if (loading) {
@@ -244,28 +246,34 @@ export default function CommunitySettings({ communityId, communitySlug, initialC
 
   const handleAddModerator = async () => {
     if (!newModerator.trim()) return;
-    
+    setError("");
     try {
-      setLoading(true);
-      // For now, add locally - in real app, this would call API
-      const newMod = {
-        id: newModerator.trim(),
-        username: newModerator.trim(),
-        avatar: `https://i.pravatar.cc/100?img=${Math.floor(Math.random() * 70)}`,
-      };
-      setModerators([...moderators, newMod]);
-      setNewModerator("");
-      
-      // Call API if available
-      try {
-        await communityService.addModerator(communityId, newModerator.trim());
-      } catch (err) {
-        console.error("Error adding moderator:", err);
+      // Look up user by username to get their UID
+      const data = await userService.getUserByUsername(newModerator.trim());
+      const foundUser = data?.user || data;
+      if (!foundUser?.uid) {
+        setError(`User "${newModerator.trim()}" not found.`);
+        return;
       }
-    } catch {
-      setError("Failed to add moderator");
-    } finally {
-      setLoading(false);
+      await communityService.addModerator(communityId, foundUser.uid);
+      setModerators((prev) => [
+        ...prev,
+        {
+          uid: foundUser.uid,
+          username: foundUser.username || newModerator.trim(),
+          avatar: foundUser.avatar || foundUser.profilePhoto || null,
+        },
+      ]);
+      setNewModerator("");
+      setSuccess("Moderator added successfully.");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      console.error("Error adding moderator:", err);
+      const msg =
+        err?.response?.data?.error?.message ||
+        err?.message ||
+        "Failed to add moderator.";
+      setError(msg);
     }
   };
 
