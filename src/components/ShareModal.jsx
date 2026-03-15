@@ -8,7 +8,7 @@ import { getProfileVideoUrl } from "../utils/profileVideos";
 import { postService, messageService, userService } from "../services";
 import { toast } from "react-hot-toast";
 
-export default function ShareModal({ isOpen, onClose, onViewUserProfile, postId, postUrl }) {
+export default function ShareModal({ isOpen, onClose, onViewUserProfile, postId, postUrl, onShareSuccess }) {
   const navigate = useNavigate();
   const [selectedFriends, setSelectedFriends] = useState(new Set());
   const [isSharing, setIsSharing] = useState(false);
@@ -103,7 +103,10 @@ export default function ShareModal({ isOpen, onClose, onViewUserProfile, postId,
       });
       
       await Promise.all(sharePromises);
-      
+
+      // Notify parent to increment share count
+      if (onShareSuccess) onShareSuccess();
+
       // Navigate to messages page and select the first friend's chat
       const firstFriendId = Array.from(selectedFriends)[0];
       const firstFriend = friends.find(f => f.id === firstFriendId);
