@@ -468,7 +468,10 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
 
                 {/* Caption */}
                 {caption && (
-                  <div className="px-4 pb-4 flex-shrink-0">
+                  <div
+                    className="px-4 pb-4 flex-shrink-0"
+                    style={post?.colorPalette?.background ? { backgroundColor: post.colorPalette.background } : {}}
+                  >
                     <p className="text-sm">
                       <button
                         onClick={() => onViewUserProfile && onViewUserProfile(username)}
@@ -478,7 +481,10 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                       </button>
                       <span
                         className="text-gray-700 dark:text-gray-300"
-                        style={post?.fontFamily ? { fontFamily: post.fontFamily } : undefined}
+                        style={{
+                          ...(post?.fontFamily ? { fontFamily: post.fontFamily } : {}),
+                          ...(post?.colorPalette?.text ? { color: post.colorPalette.text } : {}),
+                        }}
                       >
                         {caption}
                       </span>

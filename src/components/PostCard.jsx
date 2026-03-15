@@ -39,6 +39,8 @@ export default function PostCard({
   const profileImage = author.profilePhoto || author.avatar || author.profilePicture || postData.profileImage;
   const username = author.username || postData.username || 'user';
   const caption = postData.caption || postData.content || "";
+  const fontFamily = postData.fontFamily || '';
+  const colorPalette = postData.colorPalette || {};
 
   const handleLike = async () => {
     const id = postData._id || postId;
@@ -155,7 +157,10 @@ export default function PostCard({
 
           {/* Caption */}
           {caption && (
-            <div className="px-4 pb-4 flex-shrink-0">
+            <div
+              className="px-4 pb-4 flex-shrink-0"
+              style={colorPalette.background ? { backgroundColor: colorPalette.background } : {}}
+            >
               <p className="text-sm">
                 <button
                   onClick={() => onViewUserProfile && onViewUserProfile(username)}
@@ -163,7 +168,13 @@ export default function PostCard({
                 >
                   {username}
                 </button>
-                <span className="dark:text-gray-300 text-gray-700">{caption}</span>
+                <span
+                  className="dark:text-gray-300 text-gray-700"
+                  style={{
+                    ...(fontFamily ? { fontFamily } : {}),
+                    ...(colorPalette.text ? { color: colorPalette.text } : {}),
+                  }}
+                >{caption}</span>
               </p>
             </div>
           )}
