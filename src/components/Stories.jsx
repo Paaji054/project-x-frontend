@@ -12,6 +12,7 @@ export default function Stories({ onAddStory }) {
   const [showRightArrow, setShowRightArrow] = useState(true);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [selectedStoryIndex, setSelectedStoryIndex] = useState(null);
+  const [viewingOwnStory, setViewingOwnStory] = useState(false);
   const [viewedStoryIds, setViewedStoryIds] = useState([]);
   const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -84,11 +85,17 @@ export default function Stories({ onAddStory }) {
   });
 
   // For the current user, avoid showing their story twice:
-  // the \"Your Story\" tile on the left is enough.
+  // the "Your Story" tile on the left is enough.
   const visibleStories = sortedStories.filter((story) => {
     const ownerId = story.userId || story.author?.uid;
     if (!currentUserId) return true;
     return ownerId !== currentUserId;
+  });
+
+  // Current user's own stories — used when viewing own story ring
+  const myStories = sortedStories.filter((story) => {
+    const ownerId = story.userId || story.author?.uid;
+    return currentUserId && ownerId === currentUserId;
   });
 
   const checkScrollPosition = () => {
@@ -161,27 +168,42 @@ export default function Stories({ onAddStory }) {
             msOverflowStyle: "none",
           }}
         >
-          {/* Add Story Button - Instagram Style */}
+          {/* Add Story / View Own Story - Instagram Style */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3 }}
             className="flex flex-col items-center gap-1 md:gap-2 flex-shrink-0 py-1"
-            onClick={onAddStory}
           >
-            <div className="relative w-14 h-14 md:w-16 md:h-16 cursor-pointer group">
-              {/* Profile Picture */}
-              <div className="w-full h-full rounded-full border-2 border-black dark:border-gray-700 overflow-hidden">
-                <LiveProfilePhoto
-                  imageSrc={profilePhoto}
-                  videoSrc={profileVideo}
-                  alt="Your story"
-                  className="w-full h-full rounded-full"
-                />
+            <div
+              className="relative w-14 h-14 md:w-16 md:h-16 cursor-pointer group"
+              onClick={() => {
+                if (myStories.length > 0) setViewingOwnStory(true);
+                else onAddStory();
+              }}
+            >
+              {/* Story ring if user has stories, plain border otherwise */}
+              <div className={`w-full h-full rounded-full overflow-hidden ${
+                myStories.length > 0
+                  ? 'p-[2.5px] bg-gradient-to-tr from-primary-400 via-primary to-primary-700'
+                  : 'border-2 border-black dark:border-gray-700'
+              }`}>
+                <div className={`w-full h-full rounded-full overflow-hidden ${myStories.length > 0 ? 'border-2 border-white dark:border-black' : ''}`}>
+                  <LiveProfilePhoto
+                    imageSrc={profilePhoto}
+                    videoSrc={profileVideo}
+                    alt="Your story"
+                    className="w-full h-full rounded-full"
+                  />
+                </div>
               </div>
 
-              {/* Plus Icon Overlay */}
-              <div className="absolute bottom-0 right-0 w-5 h-5 md:w-6 md:h-6 bg-primary rounded-full border-2 dark:border-black border-white flex items-center justify-center group-hover:bg-primary-700 transition-all duration-200 group-hover:scale-110">
+              {/* Plus Icon — always opens AddStory */}
+              <div
+                className="absolute bottom-0 right-0 w-5 h-5 md:w-6 md:h-6 bg-primary rounded-full border-2 dark:border-black border-white flex items-center justify-center hover:bg-primary-700 transition-all duration-200 hover:scale-110 z-10"
+                onClick={(e) => { e.stopPropagation(); onAddStory(); }}
+                title="Add to story"
+              >
                 <svg className="w-3 h-3 md:w-3.5 md:h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
                 </svg>
@@ -265,7 +287,22 @@ export default function Stories({ onAddStory }) {
         )}
       </div>
 
-      {/* Story Viewer */}
+      {/* Story Viewer — own stories */}
+      {viewingOwnStory && myStories.length > 0 && (
+        <StoryViewer
+          stories={myStories}
+          initialIndex={0}
+          onClose={() => setViewingOwnStory(false)}
+          onStoryViewed={() => {}}
+          currentUserId={currentUserId}
+          onStoryDeleted={(deletedStoryId) => {
+            setStories((prev) => prev.filter((s) => (s._id || s.id) !== deletedStoryId));
+            if (myStories.length <= 1) setViewingOwnStory(false);
+          }}
+        />
+      )}
+
+      {/* Story Viewer — other users' stories */}
       {selectedStoryIndex !== null && (
         <StoryViewer
           stories={stories}
