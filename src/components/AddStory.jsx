@@ -39,6 +39,9 @@ export default function AddStory() {
   const galleryInputRef = useRef(null);
   const videoInputRef = useRef(null);
   const previewContainerRef = useRef(null);
+  const cameraVideoRef = useRef(null);
+  const cameraStreamRef = useRef(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   const filters = [
     { id: "none", name: "Normal" },
@@ -122,8 +125,142 @@ export default function AddStory() {
     e.target.value = "";
   };
 
-  const handleCameraClick = () => {
+  const handleCameraClick = async () => {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+        cameraStreamRef.current = stream;
+        setIsCameraOpen(true);
+        // Attach stream after the modal renders
+        requestAnimationFrame(() => {
+          if (cameraVideoRef.current) {
+            cameraVideoRef.current.srcObject = stream;
+          }
+        });
+        return;
+      } catch {
+        // getUserMedia denied or unsupported — fall back to native file input
+      }
+    }
     imageInputRef.current?.click();
+  };
+
+  const stopCamera = () => {
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach((t) => t.stop());
+      cameraStreamRef.current = null;
+    }
+    setIsCameraOpen(false);
+  };
+
+  const handleCapturePhoto = () => {
+    const video = cameraVideoRef.current;
+    if (!video) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+    stopCamera();
+    const imageData = { id: Date.now(), url: dataUrl, mediaType: "image" };
+    setSelectedImage(imageData);
+    setImagePreview(dataUrl);
+    setMediaType("image");
+    addToRecents(dataUrl);
+    setStep("edit");
+  };
+
+  // CSS filter values mapped to canvas filter strings
+  const FILTER_CSS_MAP = {
+    none: "",
+    vintage: "brightness(90%) contrast(125%) saturate(150%) sepia(30%)",
+    blackwhite: "grayscale(100%)",
+    warm: "brightness(110%) contrast(110%) saturate(125%) sepia(20%)",
+    cool: "brightness(95%) contrast(110%) saturate(80%) hue-rotate(15deg)",
+    dramatic: "brightness(75%) contrast(150%) saturate(150%)",
+  };
+
+  // Bake filter, text overlay, and sticker overlays into a single JPEG data URL
+  const composeImageWithEnhancements = async (imageUrl) => {
+    const CANVAS_W = 1080;
+    const CANVAS_H = 1920;
+    const canvas = document.createElement("canvas");
+    canvas.width = CANVAS_W;
+    canvas.height = CANVAS_H;
+    const ctx = canvas.getContext("2d");
+
+    // Black background (for letterbox areas)
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    // Load image
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = imageUrl;
+    });
+
+    // Apply CSS filter to canvas context
+    const cssFilter = FILTER_CSS_MAP[filter] || "";
+    if (cssFilter) ctx.filter = cssFilter;
+
+    // Draw image with object-contain (letterboxed)
+    const imgAspect = img.naturalWidth / img.naturalHeight;
+    const canvasAspect = CANVAS_W / CANVAS_H;
+    let dw, dh, dx, dy;
+    if (imgAspect > canvasAspect) {
+      dw = CANVAS_W;
+      dh = CANVAS_W / imgAspect;
+      dx = 0;
+      dy = (CANVAS_H - dh) / 2;
+    } else {
+      dh = CANVAS_H;
+      dw = CANVAS_H * imgAspect;
+      dx = (CANVAS_W - dw) / 2;
+      dy = 0;
+    }
+    ctx.drawImage(img, dx, dy, dw, dh);
+    ctx.filter = "none";
+
+    // Draw text overlay
+    if (textValue.trim()) {
+      const fontSize = Math.round(CANVAS_W * 0.065);
+      ctx.font = `bold ${fontSize}px sans-serif`;
+      ctx.fillStyle = textColor;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = "rgba(0,0,0,0.7)";
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 2;
+      const tx = (textPosition.x / 100) * CANVAS_W;
+      const ty = (textPosition.y / 100) * CANVAS_H;
+      const lines = textValue.split("\n");
+      const lineH = fontSize * 1.3;
+      lines.forEach((line, i) => {
+        ctx.fillText(line, tx, ty + (i - (lines.length - 1) / 2) * lineH);
+      });
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+    }
+
+    // Draw sticker overlays
+    if (stickerOverlays.length > 0) {
+      const emojiSize = Math.round(CANVAS_W * 0.09);
+      ctx.font = `${emojiSize}px serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for (const s of stickerOverlays) {
+        ctx.fillText(s.emoji, (s.x / 100) * CANVAS_W, (s.y / 100) * CANVAS_H);
+      }
+    }
+
+    return canvas.toDataURL("image/jpeg", 0.92);
   };
 
   const handleGalleryClick = () => {
@@ -151,10 +288,16 @@ export default function AddStory() {
 
     setIsUploading(true);
     try {
-      let mediaUrl = selectedImage.url;
+      let sourceUrl = selectedImage.url;
 
-      if (selectedImage.url.startsWith("data:")) {
-        const uploadResponse = await uploadService.uploadFromBase64(selectedImage.url, "stories");
+      // For images, bake filter / text / stickers into a single composited image
+      if (mediaType === "image" && (filter !== "none" || textValue.trim() || stickerOverlays.length > 0)) {
+        sourceUrl = await composeImageWithEnhancements(sourceUrl);
+      }
+
+      let mediaUrl = sourceUrl;
+      if (sourceUrl.startsWith("data:")) {
+        const uploadResponse = await uploadService.uploadFromBase64(sourceUrl, "stories");
         if (!uploadResponse?.url) throw new Error("Failed to upload media");
         mediaUrl = uploadResponse.url;
       }
@@ -180,6 +323,7 @@ export default function AddStory() {
   };
 
   const handleClose = () => {
+    stopCamera();
     setStep("select");
     setSelectedImage(null);
     setImagePreview(null);
@@ -321,6 +465,47 @@ export default function AddStory() {
           onChange={(e) => { handleFileUpload(e, "video"); }}
           className="hidden"
         />
+
+        {/* Camera capture modal (getUserMedia) */}
+        {isCameraOpen && (
+          <div className="fixed inset-0 z-50 bg-black flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 shrink-0">
+              <button
+                type="button"
+                onClick={stopCamera}
+                className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition"
+              >
+                <X className="w-6 h-6 text-white" />
+              </button>
+              <span className="text-white font-semibold">Camera</span>
+              <div className="w-10" />
+            </div>
+
+            <div className="flex-1 relative overflow-hidden">
+              <video
+                ref={(el) => {
+                  cameraVideoRef.current = el;
+                  if (el && cameraStreamRef.current) el.srcObject = cameraStreamRef.current;
+                }}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            <div className="flex items-center justify-center py-8 shrink-0">
+              <button
+                type="button"
+                onClick={handleCapturePhoto}
+                className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center bg-white/10 hover:bg-white/20 transition active:scale-95"
+                aria-label="Capture photo"
+              >
+                <div className="w-14 h-14 rounded-full bg-white" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

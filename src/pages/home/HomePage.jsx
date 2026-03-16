@@ -109,7 +109,7 @@ export default function HomePage({ onViewUserProfile }) {
     if (!activePostId || !commentText.trim()) return;
 
     try {
-      const response = await postService.addComment(activePostId, { 
+      const response = await postService.addComment(activePostId, {
         text: commentText,
         content: commentText,
         ...(parentId ? { parentId } : {}),
@@ -117,11 +117,19 @@ export default function HomePage({ onViewUserProfile }) {
 
       const newComment = response.comment || response.data || response;
 
-      // Update local state with the new comment
-      setPostsComments((prev) => ({
-        ...prev,
-        [activePostId]: [...(prev[activePostId] || []), newComment]
-      }));
+      // Only add to top-level list if it's not a reply to another comment
+      if (!parentId) {
+        setPostsComments((prev) => ({
+          ...prev,
+          [activePostId]: [...(prev[activePostId] || []), newComment]
+        }));
+        // Increment comment count on the post card
+        setPosts(prev => prev.map(p =>
+          String(p.id || p._id) === String(activePostId)
+            ? { ...p, commentsCount: (p.commentsCount || 0) + 1 }
+            : p
+        ));
+      }
 
       return newComment;
     } catch (err) {
@@ -188,6 +196,12 @@ export default function HomePage({ onViewUserProfile }) {
         ...prev,
         [activePostId]: (prev[activePostId] || []).filter((c) => (c._id || c.id) !== commentId)
       }));
+      // Decrement comment count on the post card
+      setPosts(prev => prev.map(p =>
+        String(p.id || p._id) === String(activePostId)
+          ? { ...p, commentsCount: Math.max(0, (p.commentsCount || 0) - 1) }
+          : p
+      ));
     } catch (err) {
       console.error("Error deleting comment:", err);
       throw err;

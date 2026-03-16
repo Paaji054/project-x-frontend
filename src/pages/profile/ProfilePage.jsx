@@ -73,15 +73,11 @@ export default function ProfilePage({ onLogout, onViewUserProfile }) {
   // Listen for follow/unfollow events to refresh stats
   useEffect(() => {
     const handleFollowUpdated = async () => {
-      // Refetch stats when user follows/unfollows someone
       if (user?.username) {
         try {
           const updatedStats = await userService.getUserStats(user.username);
-          if (updatedStats && profileData) {
-            setProfileData({
-              ...profileData,
-              stats: updatedStats
-            });
+          if (updatedStats) {
+            setProfileData(prev => prev ? { ...prev, stats: updatedStats } : prev);
           }
         } catch (error) {
           console.error('Error refreshing profile stats:', error);
@@ -92,13 +88,13 @@ export default function ProfilePage({ onLogout, onViewUserProfile }) {
     window.addEventListener("followUpdated", handleFollowUpdated);
     window.addEventListener("userFollowed", handleFollowUpdated);
     window.addEventListener("userUnfollowed", handleFollowUpdated);
-    
+
     return () => {
       window.removeEventListener("followUpdated", handleFollowUpdated);
       window.removeEventListener("userFollowed", handleFollowUpdated);
       window.removeEventListener("userUnfollowed", handleFollowUpdated);
     };
-  }, [user?.username, profileData]);
+  }, [user?.username]);
 
 const fetchProfileData = async () => {
   try {

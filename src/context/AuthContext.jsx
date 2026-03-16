@@ -40,9 +40,16 @@ export const AuthProvider = ({ children }) => {
             }
           } catch (error) {
             console.error('Get current user error:', error);
-            // Clear invalid/expired session so user can log in fresh
-            await authService.logout();
-            setIsAuthenticated(false);
+            // Fallback to stored user (e.g. immediately after Google OAuth redirect)
+            const storedUser = authService.getStoredUser();
+            if (storedUser) {
+              setUser(storedUser);
+              setIsAuthenticated(true);
+            } else {
+              // Clear invalid/expired session so user can log in fresh
+              await authService.logout();
+              setIsAuthenticated(false);
+            }
           }
         } else {
           setIsAuthenticated(false);

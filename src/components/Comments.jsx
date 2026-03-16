@@ -115,10 +115,10 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
       } else {
         await postService.pinComment(postId, commentId);
       }
-      setComments(prev => prev.map(c => ({
-        ...c,
-        isPinned: (c._id || c.id) === commentId ? !c.isPinned : false
-      })));
+      setComments(prev => prev.map(c => {
+        if ((c._id || c.id) === commentId) return { ...c, isPinned: !c.isPinned };
+        return c;
+      }));
       setOpenMenuCommentId(null);
     } catch (err) {
       console.error('Error pinning comment:', err);

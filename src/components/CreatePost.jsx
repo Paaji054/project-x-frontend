@@ -1288,7 +1288,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.2 }}
-          className={`relative bg-[#0f0f0f] rounded-lg shadow-2xl overflow-hidden max-w-5xl w-full max-h-[90vh] flex flex-col border border-gray-800`}
+          className={`relative bg-[#0f0f0f] rounded-lg shadow-2xl overflow-hidden max-w-5xl w-full h-[90vh] flex flex-col border border-gray-800`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Step 1: Upload & Preview */}
@@ -1727,7 +1727,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                 </div>
 
                 {/* Settings Sidebar */}
-                <div className="w-72 lg:w-96 bg-[#1a1a1a] border-l border-gray-800 flex flex-col overflow-hidden relative">
+                <div className="w-72 lg:w-96 bg-[#1a1a1a] border-l border-gray-800 flex flex-col overflow-hidden relative min-h-0">
                   {/* User Profile */}
                   <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800">
                     <img
@@ -1739,7 +1739,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                   </div>
 
                   {/* Scrollable Content */}
-                  <div className="flex-1 overflow-y-auto relative">
+                  <div className="flex-1 overflow-y-auto relative min-h-0">
                     {/* Caption (preview uses palette background + text color) */}
                     <div
                       className="px-4 py-3 border-b border-gray-800 relative rounded-lg min-h-[120px]"
@@ -1893,7 +1893,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                         <Type className="w-4 h-4 text-white" />
                         <span className="text-sm text-white font-medium">Font Style</span>
                       </div>
-                      <div className="flex flex-wrap gap-1.5 max-h-32 lg:max-h-40 overflow-y-auto scrollbar-hide">
+                      <div className="flex flex-wrap gap-1.5 max-h-52 overflow-y-auto pr-1">
                         {FONT_OPTIONS.map((font) => (
                           <button
                             key={font}
@@ -3305,7 +3305,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                     <Type className="w-4 h-4 text-white" />
                     <span className="text-sm text-white font-medium">Font Style</span>
                   </div>
-                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                  <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin', scrollbarColor: '#4b5563 transparent' }}>
                     {FONT_OPTIONS.map((font) => (
                       <button
                         key={font}

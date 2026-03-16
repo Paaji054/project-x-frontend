@@ -23,18 +23,24 @@ export default function PostCard({
   
   const [liked, setLiked] = useState(postData.isLiked || false);
   const [likes, setLikes] = useState(postData.likesCount || postData.likes || 0);
+  const [commentsCount, setCommentsCount] = useState(postData.commentsCount || 0);
+  const [sharesCount, setSharesCount] = useState(postData.sharesCount || 0);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // Sync like state from backend when post data updates (e.g. after refresh/navigation)
   useEffect(() => {
     setLiked(postData.isLiked || false);
     setLikes(postData.likesCount ?? postData.likes ?? 0);
-  }, [postData.isLiked, postData.likesCount, postData.likes]);
+    setCommentsCount(postData.commentsCount ?? 0);
+    setSharesCount(postData.sharesCount ?? 0);
+  }, [postData.isLiked, postData.likesCount, postData.likes, postData.commentsCount, postData.sharesCount]);
 
   const postImage = postData.imageUrl || postData.image || postData.images?.[0];
   const profileImage = author.profilePhoto || author.avatar || author.profilePicture || postData.profileImage;
   const username = author.username || postData.username || 'user';
   const caption = postData.caption || postData.content || "";
+  const fontFamily = postData.fontFamily || '';
+  const colorPalette = postData.colorPalette || {};
 
   const handleLike = async () => {
     const id = postData._id || postId;
@@ -140,14 +146,21 @@ export default function PostCard({
             </button>
           </div>
 
-          {/* Likes Count */}
+          {/* Likes / Comments / Shares Count */}
           <div className="px-4 pb-2 flex-shrink-0">
-            <p className="text-sm font-semibold">{likes.toLocaleString()} likes</p>
+            <p className="text-sm font-semibold">
+              {likes.toLocaleString()} likes
+              {commentsCount > 0 ? ` · ${commentsCount.toLocaleString()} comments` : ''}
+              {sharesCount > 0 ? ` · ${sharesCount.toLocaleString()} shares` : ''}
+            </p>
           </div>
 
           {/* Caption */}
           {caption && (
-            <div className="px-4 pb-4 flex-shrink-0">
+            <div
+              className="px-4 pb-4 flex-shrink-0"
+              style={colorPalette.background ? { backgroundColor: colorPalette.background } : {}}
+            >
               <p className="text-sm">
                 <button
                   onClick={() => onViewUserProfile && onViewUserProfile(username)}
@@ -155,14 +168,20 @@ export default function PostCard({
                 >
                   {username}
                 </button>
-                <span className="dark:text-gray-300 text-gray-700">{caption}</span>
+                <span
+                  className="dark:text-gray-300 text-gray-700"
+                  style={{
+                    ...(fontFamily ? { fontFamily } : {}),
+                    ...(colorPalette.text ? { color: colorPalette.text } : {}),
+                  }}
+                >{caption}</span>
               </p>
             </div>
           )}
         </div>
 
         {/* Share Modal */}
-        <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} onViewUserProfile={onViewUserProfile} postId={postData._id || postData.id || postId} postUrl={postImage} />
+        <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} onViewUserProfile={onViewUserProfile} postId={postData._id || postData.id || postId} postUrl={postImage} onShareSuccess={() => setSharesCount(prev => prev + 1)} />
       </>
     );
   }
@@ -232,7 +251,7 @@ export default function PostCard({
       </div>
 
       {/* Share Modal */}
-      <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} postId={postData._id || postData.id || postId} postUrl={postImage} />
+      <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} postId={postData._id || postData.id || postId} postUrl={postImage} onShareSuccess={() => setSharesCount(prev => prev + 1)} />
     </>
   );
 }

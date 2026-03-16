@@ -93,9 +93,12 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
 
   // Check if user is admin/moderator
   // Backend uses creatorId field which contains the user's uid, not username
-  const userUid = user?.uid;
+  // After enrichment, community.moderators is an array of objects {uid, username, avatar}, not strings
+  const userUid = currentUserId;
   const isAdmin = community?.creatorId === userUid;
-  const isModerator = community?.moderators?.includes(userUid);
+  const isModerator = community?.moderators?.some(
+    (m) => (typeof m === "string" ? m : m?.uid) === userUid
+  );
   const canManageSettings = isAdmin || isModerator;
 
   // Loading state
@@ -252,17 +255,12 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
   };
 
   const handleCommentClick = async (postId) => {
-    // Fetch comments when opening comments section
+    // Fetch comments when opening comments section — only store list, never overwrite count
     try {
       const response = await postService.getPostComments(postId);
-      setPosts(posts.map(p => {
+      setPosts(prev => prev.map(p => {
         if (p.id === postId) {
-          return {
-            ...p,
-            commentsList: response.comments || [],
-            comments: response.comments?.length || 0,
-            commentsCount: response.comments?.length || 0
-          };
+          return { ...p, commentsList: response.comments || [] };
         }
         return p;
       }));
@@ -277,29 +275,32 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
     setOpenCommentsPostId(null);
   };
 
-  const handleAddComment = async (commentText) => {
+  const handleAddComment = async (commentText, parentId = null) => {
     if (!openCommentsPostId || !commentText.trim()) return;
 
     try {
-      const response = await postService.addComment(openCommentsPostId, { 
+      const response = await postService.addComment(openCommentsPostId, {
         text: commentText,
-        content: commentText 
+        content: commentText,
+        ...(parentId ? { parentId } : {}),
       });
 
       const newComment = response.comment || response.data || response;
 
-      // Update local state with the new comment
-      setPosts(posts.map(p => {
-        if (p.id === openCommentsPostId) {
-          return {
-            ...p,
-            commentsList: [...(p.commentsList || []), newComment],
-            comments: (p.comments || 0) + 1,
-            commentsCount: (p.commentsCount || 0) + 1
-          };
-        }
-        return p;
-      }));
+      // Only add to top-level list and increment count if NOT a reply
+      if (!parentId) {
+        setPosts(prev => prev.map(p => {
+          if (p.id === openCommentsPostId) {
+            return {
+              ...p,
+              commentsList: [...(p.commentsList || []), newComment],
+              comments: (p.comments || 0) + 1,
+              commentsCount: (p.commentsCount || 0) + 1
+            };
+          }
+          return p;
+        }));
+      }
 
       return newComment;
     } catch (err) {
@@ -322,7 +323,7 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
       const actualCommentId = comment._id || comment.id;
 
       // Optimistic update
-      setPosts(posts.map(p => {
+      setPosts(prev => prev.map(p => {
         if (p.id === openCommentsPostId) {
           return {
             ...p,
@@ -355,7 +356,7 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
       // Revert on error - refetch comments
       try {
         const response = await postService.getPostComments(openCommentsPostId);
-        setPosts(posts.map(p => {
+        setPosts(prev => prev.map(p => {
           if (p.id === openCommentsPostId) {
             return {
               ...p,
@@ -374,11 +375,13 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
     if (!openCommentsPostId) return;
     try {
       await postService.deleteComment(openCommentsPostId, commentId);
-      setPosts(posts.map(p => {
+      setPosts(prev => prev.map(p => {
         if (p.id === openCommentsPostId) {
           return {
             ...p,
-            commentsList: (p.commentsList || []).filter((c) => (c._id || c.id) !== commentId)
+            commentsList: (p.commentsList || []).filter((c) => (c._id || c.id) !== commentId),
+            comments: Math.max(0, (p.comments || 0) - 1),
+            commentsCount: Math.max(0, (p.commentsCount || 0) - 1)
           };
         }
         return p;
@@ -733,8 +736,8 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
                         {post.category}
                       </span>
                     )}
-                    {/* Delete post - owner/moderator only */}
-                    {canManageSettings && (
+                    {/* Delete post - owner/moderator OR the post author */}
+                    {(canManageSettings || String(post.userId) === String(currentUserId)) && (
                       <button
                         type="button"
                         onClick={() => setPostToDeleteId(post.id || post._id)}

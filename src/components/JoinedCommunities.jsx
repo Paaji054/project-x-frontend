@@ -194,8 +194,8 @@ export default function JoinedCommunities({ onDiscoverClick }) {
           >
             <div className="relative h-40 overflow-hidden rounded-t-3xl">
               <LiveBanner
-                imageSrc={community.cover || community.icon || ''}
-                videoSrc={getCommunityBannerVideoUrl(community._id || community.id, community.cover || community.icon, community)}
+                imageSrc={community.banner || community.cover || ''}
+                videoSrc={getCommunityBannerVideoUrl(community._id || community.id, community.banner || community.cover, community)}
                 alt={`${community.name || 'Community'} cover`}
                 className="h-full w-full transition-transform duration-500 group-hover:scale-105"
                 maxDuration={10}

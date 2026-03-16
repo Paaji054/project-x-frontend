@@ -16,6 +16,7 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
   const [liked, setLiked] = useState(post?.isLiked || post?.liked || false);
   const [likes, setLikes] = useState(post?.likesCount || post?.likes || 0);
   const [commentsCount, setCommentsCount] = useState(post?.commentsCount ?? 0);
+  const [sharesCount, setSharesCount] = useState(post?.sharesCount || 0);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [newComment, setNewComment] = useState("");
   const commentsEndRef = useRef(null);
@@ -53,12 +54,11 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
   useEffect(() => {
     const loadComments = async () => {
       if (!postId) return;
-      
+
       try {
         setLoading(true);
         setError(null);
         const response = await postService.getPostComments(postId);
-        // Ensure we preserve the isLiked state from backend
         setComments(response.comments || []);
       } catch (err) {
         console.error('Error fetching comments:', err);
@@ -68,14 +68,35 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
       }
     };
 
+    // Verify like/count state from backend (ensures accuracy regardless of how the modal was opened)
+    const verifyPostState = async () => {
+      if (!postId) return;
+      try {
+        const result = await postService.getPostById(postId);
+        const fresh = result?.post ?? result;
+        if (fresh) {
+          setLiked(fresh.isLiked ?? false);
+          setLikes(fresh.likesCount ?? fresh.likes ?? 0);
+          if (fresh.commentsCount != null) setCommentsCount(fresh.commentsCount);
+          if (fresh.sharesCount != null) setSharesCount(fresh.sharesCount);
+        }
+      } catch (err) {
+        // Ignore — keep prop values as fallback
+        console.error('Failed to verify post state from backend:', err);
+      }
+    };
+
     if (isOpen && postId) {
-      loadComments();
-      // Update like state and comment count from post prop
+      // Immediate sync from prop (prevents flicker)
       setLiked(post?.isLiked || post?.liked || false);
       setLikes(post?.likesCount || post?.likes || 0);
       setCommentsCount(post?.commentsCount ?? 0);
+      setSharesCount(post?.sharesCount || 0);
+      // Fetch fresh data from backend
+      loadComments();
+      verifyPostState();
     }
-  }, [isOpen, postId, post?.isLiked, post?.liked, post?.likesCount, post?.likes, post?.commentsCount]);
+  }, [isOpen, postId]);
 
   const fetchComments = async () => {
     if (!postId) return;
@@ -173,7 +194,7 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
     
     const commentText = newComment.trim();
     setNewComment("");
-    const parentId = replyingTo?.id || null;
+    const parentId = replyingTo?.commentId || null;
     setReplyingTo(null);
     
     try {
@@ -199,6 +220,13 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
             [parentId]: [...(prev[parentId] || []), newCommentObj],
           }));
           setExpandedReplies(prev => ({ ...prev, [parentId]: true }));
+          // Increment parent comment's reply count in the comments list
+          setComments(prev => prev.map(c => {
+            const cId = c._id || c.id;
+            return cId === parentId
+              ? { ...c, replyCount: (c.replyCount || 0) + 1, repliesCount: (c.repliesCount || 0) + 1 }
+              : c;
+          }));
         } else {
           setComments(prev => [...prev, newCommentObj]);
         }
@@ -430,14 +458,20 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                   </button>
                 </div>
 
-                {/* Likes Count */}
+                {/* Likes + Shares Count */}
                 <div className="px-4 pb-2 flex-shrink-0">
-                  <p className="text-sm font-semibold">{likes.toLocaleString()} likes</p>
+                  <p className="text-sm font-semibold">
+                    {likes.toLocaleString()} likes
+                    {sharesCount > 0 ? ` · ${sharesCount.toLocaleString()} shares` : ''}
+                  </p>
                 </div>
 
                 {/* Caption */}
                 {caption && (
-                  <div className="px-4 pb-4 flex-shrink-0">
+                  <div
+                    className="px-4 pb-4 flex-shrink-0"
+                    style={post?.colorPalette?.background ? { backgroundColor: post.colorPalette.background } : {}}
+                  >
                     <p className="text-sm">
                       <button
                         onClick={() => onViewUserProfile && onViewUserProfile(username)}
@@ -447,7 +481,10 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                       </button>
                       <span
                         className="text-gray-700 dark:text-gray-300"
-                        style={post?.fontFamily ? { fontFamily: post.fontFamily } : undefined}
+                        style={{
+                          ...(post?.fontFamily ? { fontFamily: post.fontFamily } : {}),
+                          ...(post?.colorPalette?.text ? { color: post.colorPalette.text } : {}),
+                        }}
                       >
                         {caption}
                       </span>
@@ -730,12 +767,13 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
           </div>
 
           {/* Share Modal */}
-          <ShareModal 
-            isOpen={isShareModalOpen} 
-            onClose={() => setIsShareModalOpen(false)} 
+          <ShareModal
+            isOpen={isShareModalOpen}
+            onClose={() => setIsShareModalOpen(false)}
             onViewUserProfile={onViewUserProfile}
             postId={postId}
             postUrl={postImage}
+            onShareSuccess={() => setSharesCount(prev => prev + 1)}
           />
 
           {/* Delete post confirmation - permanently removes from database */}
