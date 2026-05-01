@@ -273,6 +273,16 @@ class SocketService {
   }
 
   /**
+   * Listen for message delivered receipts
+   */
+  onMessageDelivered(callback) {
+    if (this.socket) {
+      // Backend sends message_delivered event
+      this.socket.on('message_delivered', callback);
+    }
+  }
+
+  /**
    * Listen for typing indicators (updated to match backend)
    */
   onTyping(callback) {

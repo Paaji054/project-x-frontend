@@ -90,10 +90,25 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
     };
 
     socketService.onNewMessage(handleNewMessage);
+    // Listen for delivery receipts to update UI (mark messages as delivered)
+    const handleDelivered = (payload) => {
+      const { messageId, chatId, deliveredTo } = payload || {};
+      if (!messageId || String(chatId) !== String(activeChatRef.current?._id)) return;
+      setMessages((prev) => prev.map((m) => {
+        if (!m) return m;
+        // message.id may be numeric (temp) or string _id from server
+        if (String(m.id) === String(messageId)) {
+          return { ...m, isDelivered: true, status: m.status === 'read' ? 'read' : 'delivered' };
+        }
+        return m;
+      }));
+    };
+    socketService.onMessageDelivered(handleDelivered);
     return () => {
       socketService.leaveConversation(activeChat._id);
       if (socketService.socket) {
         socketService.socket.off('receive_message', handleNewMessage);
+        socketService.socket.off('message_delivered', handleDelivered);
       }
     };
   }, [activeChat?._id, currentUserId]);
