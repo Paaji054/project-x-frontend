@@ -375,11 +375,18 @@ export default function RegisterPage({ onSwitchToLogin }) {
       if (response.success) {
         createSuccessParticles();
         // Clear auth state so user lands on login page (not auto-logged in)
-        await authLogout();
+        try {
+          await authLogout();
+        } catch (logoutErr) {
+          console.warn('Logout after signup had an issue:', logoutErr);
+        }
+        // Navigate to login immediately instead of showing particles
+        toast.success('Account created! Please log in.');
         setTimeout(() => {
-          navigate('/login', { state: { registered: true } });
-        }, 800);
+          navigate('/login', { replace: true, state: { registered: true } });
+        }, 300);
       } else {
+        setError(response.message || "Registration failed. Please try again.");
         toast.error(response.message || "Registration failed. Please try again.");
         triggerErrorAnimation();
       }
@@ -842,14 +849,24 @@ export default function RegisterPage({ onSwitchToLogin }) {
         }
 
         .terms-checkbox label a {
-          color: #ff9800;
-          text-decoration: none;
-          transition: color 0.3s;
+          color: #ffb74d;
+          text-decoration: underline;
+          transition: all 0.3s;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 2px 4px;
+          border-radius: 3px;
         }
 
         .terms-checkbox label a:hover {
-          color: #ff5722;
+          color: #fff;
+          background: rgba(255, 152, 0, 0.3);
           text-decoration: underline;
+        }
+
+        .terms-checkbox label a:focus {
+          outline: 2px solid #ff5722;
+          outline-offset: 1px;
         }
 
         .button-group {
@@ -1659,14 +1676,15 @@ export default function RegisterPage({ onSwitchToLogin }) {
                     setAgreedToTerms(e.target.checked);
                     if (error) setError("");
                   }}
+                  aria-label="Agree to terms of service and privacy policy"
                 />
                 <label htmlFor="terms">
                   I agree with the{" "}
-                  <a href="/terms" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                  <a href="/terms" target="_blank" rel="noopener noreferrer">
                     Terms of Service
                   </a>{" "}
                   and{" "}
-                  <a href="/privacy" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer">
                     Privacy Policy
                   </a>
                 </label>
