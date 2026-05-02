@@ -108,19 +108,41 @@ export default function PostCard({
             </button>
           </div>
 
-          {/* Post Image - 4:3 aspect ratio (Instagram standard) */}
-          <div 
-            className="w-full aspect-[4/3] md:aspect-auto md:flex-1 dark:bg-black bg-gray-100 overflow-hidden flex items-center justify-center cursor-pointer"
-            onClick={onClick}
-          >
-            <img
-              src={postImage}
-              alt="post"
-              className="w-full h-full object-cover"
-              loading="lazy"
-              decoding="async"
-            />
-          </div>
+          {/* Post media / text-only content */}
+          {postImage ? (
+            <div 
+              className="w-full aspect-[4/3] md:aspect-auto md:flex-1 dark:bg-black bg-gray-100 overflow-hidden flex items-center justify-center cursor-pointer"
+              onClick={onClick}
+            >
+              <img
+                src={postImage}
+                alt="post"
+                className="w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+          ) : (
+            <div
+              className="w-full md:flex-1 dark:bg-black bg-gray-100 flex items-center justify-center px-5 py-10 cursor-pointer"
+              onClick={onClick}
+            >
+              <div
+                className="w-full max-w-xl rounded-2xl border border-gray-200 dark:border-gray-800 p-6 md:p-8 shadow-sm"
+                style={colorPalette.background ? { backgroundColor: colorPalette.background } : {}}
+              >
+                <p
+                  className="text-lg md:text-xl leading-relaxed whitespace-pre-wrap"
+                  style={{
+                    ...(fontFamily ? { fontFamily } : {}),
+                    ...(colorPalette.text ? { color: colorPalette.text } : {}),
+                  }}
+                >
+                  {caption || 'New post'}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center gap-4 px-4 py-3 flex-shrink-0">
@@ -190,19 +212,41 @@ export default function PostCard({
   return (
     <>
       <div className="w-full rounded-xl overflow-hidden bg-white dark:bg-[#111] border border-black dark:border-gray-800 hover:border-primary transition shadow-sm">
-        {/* Post Image - 4:3 aspect ratio (Instagram standard) */}
-        <div 
-          className="w-full aspect-[4/3] dark:bg-black bg-gray-100 overflow-hidden flex items-center justify-center cursor-pointer"
-          onClick={onClick}
-        >
-          <img
-            src={postImage}
-            alt="post"
-            className="w-full h-full object-cover"
-            loading="lazy"
-            decoding="async"
-          />
-        </div>
+        {/* Post media / text-only content */}
+        {postImage ? (
+          <div 
+            className="w-full aspect-[4/3] dark:bg-black bg-gray-100 overflow-hidden flex items-center justify-center cursor-pointer"
+            onClick={onClick}
+          >
+            <img
+              src={postImage}
+              alt="post"
+              className="w-full h-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+        ) : (
+          <div
+            className="w-full aspect-[4/3] dark:bg-black bg-gray-100 flex items-center justify-center p-4 cursor-pointer"
+            onClick={onClick}
+          >
+            <div
+              className="w-full h-full rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center justify-center"
+              style={colorPalette.background ? { backgroundColor: colorPalette.background } : {}}
+            >
+              <p
+                className="text-base md:text-lg leading-relaxed whitespace-pre-wrap text-center"
+                style={{
+                  ...(fontFamily ? { fontFamily } : {}),
+                  ...(colorPalette.text ? { color: colorPalette.text } : {}),
+                }}
+              >
+                {caption || 'New post'}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* User + Icons Row */}
         <div className="flex justify-between items-center px-3 py-3">

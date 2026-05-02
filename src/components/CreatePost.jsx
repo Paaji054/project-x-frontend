@@ -518,6 +518,8 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
 
       // Determine the final image to upload
       let imageToUpload = finalEditedImage || croppedImage || imagePreview;
+      const hasMedia = Boolean(selectedFile || imageToUpload);
+      const captionText = caption.trim();
 
       // When user bypassed crop step (e.g. mobile or back from crop), apply original-aspect crop
       // so published image matches a consistent "no crop" preview instead of raw aspect mismatch.
@@ -526,6 +528,49 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
         imageToUpload = await new Promise((resolve) => {
           cropImage(imagePreview, resolve, 'original');
         });
+      }
+
+      if (!hasMedia) {
+        if (!captionText) {
+          setUploadError('Add text or an image before posting');
+          return;
+        }
+
+        const postData = {
+          caption: captionText,
+          category: category,
+          taggedUsers: taggedPeople.map(p => (typeof p === 'object' ? (p.uid || p.username) : p)).filter(Boolean),
+          location: location,
+          collaborators: collaborators.map(c => (typeof c === 'object' ? (c.uid || c.username) : c)).filter(Boolean),
+          hideLikeCounts: hideLikeCounts,
+          turnOffCommenting: turnOffCommenting,
+          mediaType: 'text',
+        };
+
+        if (colorPalette.background || colorPalette.text || colorPalette.accent) {
+          postData.colorPalette = colorPalette;
+        }
+        if (fontFamily) {
+          postData.fontFamily = fontFamily;
+        }
+        if (communityId) {
+          postData.communityId = communityId;
+        }
+
+        const response = await postService.createPost(postData);
+        const newPost = response?.post || response;
+
+        if (!newPost) {
+          throw new Error('Failed to create post');
+        }
+
+        window.dispatchEvent(new CustomEvent('newPostCreated', { detail: newPost }));
+        if (onPostCreated) {
+          onPostCreated(newPost);
+        }
+
+        handleClose();
+        return;
       }
 
       if (!imageToUpload) {
@@ -600,7 +645,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
       const postData = {
         imageUrl: uploadResponse.url,
         mediaType: isVideo ? 'video' : 'image',
-        caption: caption,
+        caption: captionText,
         category: category,
         taggedUsers: taggedPeople.map(p => (typeof p === 'object' ? (p.uid || p.username) : p)).filter(Boolean),
         location: location,
@@ -1328,6 +1373,18 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                       </button>
                     </div>
                   </div>
+                  <div className="mt-5 w-full max-w-md flex flex-col items-center gap-3">
+                    <button
+                      type="button"
+                      className="w-full px-6 py-2.5 bg-[#1f2937] text-white rounded-lg font-semibold hover:bg-[#374151] transition-colors border border-gray-700"
+                      onClick={() => setStep("final")}
+                    >
+                      Continue without media
+                    </button>
+                    <p className="text-xs text-gray-400 text-center">
+                      You can post text, a quote, or an update without uploading a photo or video.
+                    </p>
+                  </div>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -1660,7 +1717,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
           )}
 
           {/* Step 4: Final Create Post */}
-          {step === "final" && (editedImage || croppedImage || imagePreview) && (
+          {step === "final" && (
             <div className="flex flex-col h-full">
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
@@ -1690,7 +1747,24 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
               <div className="flex-1 flex overflow-hidden relative min-h-0">
                 {/* Media Preview */}
                 <div className="flex-1 bg-black flex items-center justify-center relative">
-                  {selectedFile?.type?.startsWith('video/') ? (
+                  {!imagePreview ? (
+                    <div className="w-full h-full flex items-center justify-center px-8 py-10">
+                      <div
+                        className="w-full max-w-2xl rounded-2xl border border-gray-800 bg-[#111827] p-6 md:p-8"
+                        style={colorPalette.background ? { backgroundColor: colorPalette.background } : {}}
+                      >
+                        <p
+                          className="text-lg md:text-2xl leading-relaxed whitespace-pre-wrap text-center"
+                          style={{
+                            ...(fontFamily ? { fontFamily } : {}),
+                            ...(colorPalette.text ? { color: colorPalette.text } : { color: '#ffffff' }),
+                          }}
+                        >
+                          {caption.trim() || 'Your post will appear here'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : selectedFile?.type?.startsWith('video/') ? (
                     <video
                       src={imagePreview}
                       controls
