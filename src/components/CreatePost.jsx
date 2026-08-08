@@ -5,12 +5,15 @@ import EmojiPickerReact from 'emoji-picker-react';
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useAuth } from "../context/AuthContext";
 import uploadIcon from "../assets/upload.svg";
-import { uploadService } from "../services/uploadService";
+import { uploadService, MAX_VIDEO_SIZE_BYTES } from "../services/uploadService";
 import { postService } from "../services/postService";
 import { userService } from "../services/userService";
 import { aiService } from "../services/aiService";
 import { toast } from "react-hot-toast";
 import { useDebounce } from "../hooks/useDebounce";
+import MusicPickerModal from "./MusicPickerModal";
+import ImageQualityPicker from "./ImageQualityPicker";
+import { compressImageDataUrl, estimateDataUrlSize, formatFileSize } from "../utils/imageCompression";
 
 export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreated, communityId }) {
   const [step, setStep] = useState("upload"); // "upload", "crop", "edit", "final"
@@ -70,6 +73,10 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
   const [finalEditedImage, setFinalEditedImage] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState("");
+  const [showQualityPicker, setShowQualityPicker] = useState(false);
+  const [pendingImageUpload, setPendingImageUpload] = useState(null);
 
   // Following users for tagging
   const [followingUsers, setFollowingUsers] = useState([]);
@@ -250,6 +257,13 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
 
   const handleFileSelect = (file) => {
     if (file && (file.type.startsWith('image/') || file.type.startsWith('video/'))) {
+      if (file.type.startsWith('video/') && file.size > MAX_VIDEO_SIZE_BYTES) {
+        setUploadError(`Video is too large (${formatFileSize(file.size)}). Maximum size is 50 MB.`);
+        toast.error(`Video is too large. Maximum size is 50 MB.`);
+        return;
+      }
+
+      setUploadError(null);
       setSelectedFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -511,103 +525,208 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
     setStep("final");
   };
 
-  const handleShare = async () => {
-    try {
-      setIsUploading(true);
-      setUploadError(null);
+  const executeShare = async ({ isVideo, file, dataUrl, captionText }) => {
+    setUploadProgress(0);
+    setUploadStatus(isVideo ? "Uploading video..." : "Uploading image...");
 
-      // Determine the final image to upload
+    const uploadResponse = await uploadService.uploadMedia({
+      file: isVideo ? file : undefined,
+      dataUrl: isVideo ? undefined : dataUrl,
+      folder: "posts",
+      onProgress: (pct) => {
+        setUploadProgress(pct);
+        setUploadStatus(`Uploading... ${pct}%`);
+      },
+    });
+
+    if (!uploadResponse?.url) {
+      throw new Error("Failed to upload media");
+    }
+
+    setUploadStatus("Creating post...");
+
+    const postData = {
+      imageUrl: uploadResponse.url,
+      mediaType: isVideo ? "video" : "image",
+      caption: captionText,
+      category: category,
+      taggedUsers: taggedPeople.map(p => (typeof p === "object" ? (p.uid || p.username) : p)).filter(Boolean),
+      location: location,
+      collaborators: collaborators.map(c => (typeof c === "object" ? (c.uid || c.username) : c)).filter(Boolean),
+      hideLikeCounts: hideLikeCounts,
+      turnOffCommenting: turnOffCommenting,
+    };
+
+    if (colorPalette.background || colorPalette.text || colorPalette.accent) {
+      postData.colorPalette = colorPalette;
+    }
+    if (fontFamily) {
+      postData.fontFamily = fontFamily;
+    }
+    if (communityId) {
+      postData.communityId = communityId;
+    }
+
+    const response = await postService.createPost(postData);
+    const newPost = response?.post || response;
+
+    if (!newPost) {
+      throw new Error("Failed to create post");
+    }
+
+    window.dispatchEvent(new CustomEvent("newPostCreated", { detail: newPost }));
+    if (onPostCreated) {
+      onPostCreated(newPost);
+    }
+
+    handleClose();
+  };
+
+  const handleQualitySelected = async (quality) => {
+    if (!pendingImageUpload) return;
+
+    setShowQualityPicker(false);
+    setIsUploading(true);
+    setUploadError(null);
+    setUploadProgress(0);
+    setUploadStatus("Compressing image...");
+
+    try {
+      const compressed = await compressImageDataUrl(pendingImageUpload.imageToUpload, quality);
+      await executeShare({
+        isVideo: false,
+        dataUrl: compressed,
+        captionText: pendingImageUpload.captionText,
+      });
+    } catch (error) {
+      console.error("Error creating post:", error);
+      setUploadError(error.message || "Failed to create post. Please try again.");
+    } finally {
+      setPendingImageUpload(null);
+      setIsUploading(false);
+      setUploadProgress(0);
+      setUploadStatus("");
+    }
+  };
+
+  const handleShare = async () => {
+    setUploadError(null);
+
+    try {
       let imageToUpload = finalEditedImage || croppedImage || imagePreview;
       const hasMedia = Boolean(selectedFile || imageToUpload);
       const captionText = caption.trim();
+      const isVideo = selectedFile?.type?.startsWith("video/");
 
-      // When user bypassed crop step (e.g. mobile or back from crop), apply original-aspect crop
-      // so published image matches a consistent "no crop" preview instead of raw aspect mismatch.
-      const isImage = selectedFile?.type?.startsWith('image/');
+      const isImage = selectedFile?.type?.startsWith("image/");
       if (isImage && !communityId && imagePreview && !croppedImage && imageToUpload === imagePreview) {
         imageToUpload = await new Promise((resolve) => {
-          cropImage(imagePreview, resolve, 'original');
+          cropImage(imagePreview, resolve, "original");
         });
       }
 
       if (!hasMedia) {
         if (!captionText) {
-          setUploadError('Add text or an image before posting');
+          setUploadError("Add text or an image before posting");
           return;
         }
 
-        const postData = {
-          caption: captionText,
-          category: category,
-          taggedUsers: taggedPeople.map(p => (typeof p === 'object' ? (p.uid || p.username) : p)).filter(Boolean),
-          location: location,
-          collaborators: collaborators.map(c => (typeof c === 'object' ? (c.uid || c.username) : c)).filter(Boolean),
-          hideLikeCounts: hideLikeCounts,
-          turnOffCommenting: turnOffCommenting,
-          mediaType: 'text',
-        };
+        setIsUploading(true);
+        try {
+          const postData = {
+            caption: captionText,
+            category: category,
+            taggedUsers: taggedPeople.map(p => (typeof p === "object" ? (p.uid || p.username) : p)).filter(Boolean),
+            location: location,
+            collaborators: collaborators.map(c => (typeof c === "object" ? (c.uid || c.username) : c)).filter(Boolean),
+            hideLikeCounts: hideLikeCounts,
+            turnOffCommenting: turnOffCommenting,
+            mediaType: "text",
+          };
 
-        if (colorPalette.background || colorPalette.text || colorPalette.accent) {
-          postData.colorPalette = colorPalette;
-        }
-        if (fontFamily) {
-          postData.fontFamily = fontFamily;
-        }
-        if (communityId) {
-          postData.communityId = communityId;
-        }
+          if (colorPalette.background || colorPalette.text || colorPalette.accent) {
+            postData.colorPalette = colorPalette;
+          }
+          if (fontFamily) {
+            postData.fontFamily = fontFamily;
+          }
+          if (communityId) {
+            postData.communityId = communityId;
+          }
 
-        const response = await postService.createPost(postData);
-        const newPost = response?.post || response;
+          const response = await postService.createPost(postData);
+          const newPost = response?.post || response;
 
-        if (!newPost) {
-          throw new Error('Failed to create post');
+          if (!newPost) {
+            throw new Error("Failed to create post");
+          }
+
+          window.dispatchEvent(new CustomEvent("newPostCreated", { detail: newPost }));
+          if (onPostCreated) {
+            onPostCreated(newPost);
+          }
+
+          handleClose();
+        } catch (error) {
+          console.error("Error creating post:", error);
+          setUploadError(error.message || "Failed to create post. Please try again.");
+        } finally {
+          setIsUploading(false);
         }
-
-        window.dispatchEvent(new CustomEvent('newPostCreated', { detail: newPost }));
-        if (onPostCreated) {
-          onPostCreated(newPost);
-        }
-
-        handleClose();
         return;
       }
 
-      if (!imageToUpload) {
-        setUploadError('No image selected');
+      if (!imageToUpload && !isVideo) {
+        setUploadError("No image selected");
         return;
       }
 
-      // Always apply filters and adjustments if they exist
+      if (isVideo) {
+        if (!selectedFile) {
+          setUploadError("No video file selected");
+          return;
+        }
+
+        setIsUploading(true);
+        try {
+          await executeShare({ isVideo: true, file: selectedFile, captionText });
+        } catch (error) {
+          console.error("Error creating post:", error);
+          setUploadError(error.message || "Failed to upload video. Please try again.");
+        } finally {
+          setIsUploading(false);
+          setUploadProgress(0);
+          setUploadStatus("");
+        }
+        return;
+      }
+
       if (selectedFilter !== "original" || Object.values(adjustments).some(v => v !== 0)) {
-        // Create canvas to apply filters and adjustments
         imageToUpload = await new Promise((resolve) => {
           const img = new Image();
           img.onload = () => {
-            const canvas = document.createElement('canvas');
+            const canvas = document.createElement("canvas");
             canvas.width = img.width;
             canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            
-            // Apply CSS filters via canvas
+            const ctx = canvas.getContext("2d");
+
             const filterMap = {
-              original: '',
-              aden: 'contrast(0.9) brightness(1.2) saturate(0.85)',
-              clarendon: 'contrast(1.2) brightness(1) saturate(1.35)',
-              crema: 'contrast(0.9) brightness(1.1) saturate(1)',
-              gingham: 'contrast(1.05) brightness(1.05) saturate(1)',
-              juno: 'contrast(1.15) brightness(1) saturate(1.2)',
-              lark: 'contrast(1.1) brightness(1.1) saturate(1.1)',
-              ludwig: 'contrast(1.05) brightness(1.05) saturate(1)',
-              moon: 'contrast(1.1) grayscale(1)',
-              perpetua: 'contrast(0.9) brightness(1.1) saturate(0.9)',
-              reyes: 'contrast(0.85) brightness(1.15) saturate(0.75)',
-              slumber: 'contrast(0.9) brightness(0.95) saturate(0.85)',
+              original: "",
+              aden: "contrast(0.9) brightness(1.2) saturate(0.85)",
+              clarendon: "contrast(1.2) brightness(1) saturate(1.35)",
+              crema: "contrast(0.9) brightness(1.1) saturate(1)",
+              gingham: "contrast(1.05) brightness(1.05) saturate(1)",
+              juno: "contrast(1.15) brightness(1) saturate(1.2)",
+              lark: "contrast(1.1) brightness(1.1) saturate(1.1)",
+              ludwig: "contrast(1.05) brightness(1.05) saturate(1)",
+              moon: "contrast(1.1) grayscale(1)",
+              perpetua: "contrast(0.9) brightness(1.1) saturate(0.9)",
+              reyes: "contrast(0.85) brightness(1.15) saturate(0.75)",
+              slumber: "contrast(0.9) brightness(0.95) saturate(0.85)",
             };
-            
-            let filterString = filterMap[selectedFilter] || '';
-            
-            // Add adjustments
+
+            let filterString = filterMap[selectedFilter] || "";
+
             if (adjustments.brightness !== 0) {
               filterString += ` brightness(${1 + adjustments.brightness / 100})`;
             }
@@ -620,76 +739,22 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
             if (adjustments.fade !== 0) {
               filterString += ` opacity(${1 - Math.abs(adjustments.fade) / 100})`;
             }
-            
+
             ctx.filter = filterString;
             ctx.drawImage(img, 0, 0);
-            ctx.filter = 'none';
-            
-            resolve(canvas.toDataURL('image/jpeg', 0.95));
+            ctx.filter = "none";
+
+            resolve(canvas.toDataURL("image/jpeg", 0.95));
           };
           img.src = imageToUpload;
         });
       }
 
-      // Determine if it's a video or image
-      const isVideo = selectedFile?.type?.startsWith('video/');
-      
-      // Upload media to backend
-      const uploadResponse = await uploadService.uploadFromBase64(imageToUpload, 'posts');
-
-      if (!uploadResponse?.url) {
-        throw new Error('Failed to upload media');
-      }
-
-      // Create post data
-      const postData = {
-        imageUrl: uploadResponse.url,
-        mediaType: isVideo ? 'video' : 'image',
-        caption: captionText,
-        category: category,
-        taggedUsers: taggedPeople.map(p => (typeof p === 'object' ? (p.uid || p.username) : p)).filter(Boolean),
-        location: location,
-        collaborators: collaborators.map(c => (typeof c === 'object' ? (c.uid || c.username) : c)).filter(Boolean),
-        hideLikeCounts: hideLikeCounts,
-        turnOffCommenting: turnOffCommenting,
-      };
-
-      // Add color palette if any color is set
-      if (colorPalette.background || colorPalette.text || colorPalette.accent) {
-        postData.colorPalette = colorPalette;
-      }
-      if (fontFamily) {
-        postData.fontFamily = fontFamily;
-      }
-
-      // Add communityId if posting to a community
-      if (communityId) {
-        postData.communityId = communityId;
-      }
-
-      // Create post via API
-      const response = await postService.createPost(postData);
-      const newPost = response?.post || response;
-
-      if (!newPost) {
-        throw new Error('Failed to create post');
-      }
-
-      // Dispatch event for local updates
-      window.dispatchEvent(
-        new CustomEvent("newPostCreated", { detail: newPost })
-      );
-
-      if (onPostCreated) {
-        onPostCreated(newPost);
-      }
-
-      handleClose();
+      setPendingImageUpload({ imageToUpload, captionText });
+      setShowQualityPicker(true);
     } catch (error) {
-      console.error('Error creating post:', error);
-      setUploadError(error.message || 'Failed to create post. Please try again.');
-    } finally {
-      setIsUploading(false);
+      console.error("Error preparing post:", error);
+      setUploadError(error.message || "Failed to prepare post. Please try again.");
     }
   };
 
@@ -1007,15 +1072,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
     timestamp: i < 5 ? 'Today' : i < 10 ? 'Yesterday' : '2 days ago'
   }));
 
-  // Sample music tracks
-  const musicTracks = [
-    { id: 1, title: "Still Beating", artist: "Mac DeMarco", thumbnail: "https://via.placeholder.com/60/FFD700/000000?text=SB" },
-    { id: 2, title: "Dracula", artist: "Tame Impala", thumbnail: "https://via.placeholder.com/60/000000/FFFFFF?text=D" },
-    { id: 3, title: "Good Life", artist: "T-Pain", thumbnail: "https://via.placeholder.com/60/FF6B6B/FFFFFF?text=GL" },
-    { id: 4, title: "Weston Road Flow", artist: "Drake", thumbnail: "https://via.placeholder.com/60/4ECDC4/FFFFFF?text=WRF" },
-  ];
-
-  // Get image bounds within container for drawing
+  // Sample gallery images for mobile
   const getImageBounds = () => {
     const container = drawingCanvasRef.current?.parentElement;
     if (!container) return null;
@@ -1746,6 +1803,14 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                   <h2 className="text-base font-semibold text-white">Create new post</h2>
                   {uploadError && (
                     <p className="text-xs text-red-500 mt-1">{uploadError}</p>
+                  )}
+                  {uploadStatus && (
+                    <p className="text-xs text-gray-400 mt-1">{uploadStatus}</p>
+                  )}
+                  {isUploading && uploadProgress > 0 && (
+                    <div className="w-24 h-1 bg-gray-800 rounded-full mt-1 overflow-hidden">
+                      <div className="h-full bg-blue-500 transition-all" style={{ width: `${uploadProgress}%` }} />
+                    </div>
                   )}
                 </div>
                 <button
@@ -3193,6 +3258,14 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
                   {uploadError && (
                     <p className="text-xs text-red-500 mt-1">{uploadError}</p>
                   )}
+                  {uploadStatus && (
+                    <p className="text-xs text-gray-400 mt-1">{uploadStatus}</p>
+                  )}
+                  {isUploading && uploadProgress > 0 && (
+                    <div className="w-24 h-1 bg-gray-800 rounded-full mt-1 overflow-hidden">
+                      <div className="h-full bg-blue-500 transition-all" style={{ width: `${uploadProgress}%` }} />
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={handleShare}
@@ -3502,53 +3575,12 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
         </AnimatePresence>
 
         {/* Mobile Music Modal */}
-        <AnimatePresence>
-          {showMusicModal && (
-            <>
-              <div
-                className="absolute inset-0 bg-black/60 z-[110]"
-                onClick={() => setShowMusicModal(false)}
-              />
-              <motion.div
-                initial={{ opacity: 0, y: 100 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 100 }}
-                className="absolute bottom-0 left-0 right-0 bg-[#1a1a1a] border-t border-gray-800 rounded-t-lg z-[111] max-h-[60vh] flex flex-col"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-                  <h2 className="text-base font-semibold text-white">Add audio</h2>
-                  <button
-                    onClick={() => setShowMusicModal(false)}
-                    className="text-gray-400"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4">
-                  <div className="space-y-2">
-                    {musicTracks.map((track) => (
-                      <button
-                        key={track.id}
-                        onClick={() => {
-                          setSelectedMusic(track);
-                          setShowMusicModal(false);
-                        }}
-                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors"
-                      >
-                        <img src={track.thumbnail} alt={track.title} className="w-12 h-12 rounded" />
-                        <div className="flex-1 text-left">
-                          <p className="text-sm text-white font-medium">{track.title}</p>
-                          <p className="text-xs text-gray-400">{track.artist}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
+        <MusicPickerModal
+          isOpen={showMusicModal}
+          onClose={() => setShowMusicModal(false)}
+          selectedTrack={selectedMusic}
+          onConfirm={setSelectedMusic}
+        />
 
         {/* Mobile Text Modal */}
         <AnimatePresence>
@@ -3789,6 +3821,20 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
           )}
         </AnimatePresence>
       </div>
+
+      <ImageQualityPicker
+        isOpen={showQualityPicker}
+        onClose={() => {
+          setShowQualityPicker(false);
+          setPendingImageUpload(null);
+        }}
+        onSelect={handleQualitySelected}
+        estimatedSize={
+          pendingImageUpload?.imageToUpload
+            ? formatFileSize(estimateDataUrlSize(pendingImageUpload.imageToUpload))
+            : null
+        }
+      />
     </AnimatePresence>
   );
 }

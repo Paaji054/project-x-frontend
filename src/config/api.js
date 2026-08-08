@@ -126,6 +126,7 @@ export const API_ENDPOINTS = {
   // Upload
   UPLOAD: {
     URL: '/api/upload/url',
+    FILE: '/api/upload/file',
     BASE64: '/api/upload/base64',
     OPTIMIZE: (publicId) => `/api/upload/optimize/${publicId}`,
     TRANSFORM: (publicId) => `/api/upload/transform/${publicId}`,

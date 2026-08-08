@@ -1,13 +1,39 @@
 import { api } from '../utils/httpClient';
-import { API_ENDPOINTS } from '../config/api';
+import { API_ENDPOINTS, API_CONFIG } from '../config/api';
+import { tokenManager } from '../utils/httpClient';
+
+export const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024;
+export const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
+
+function parseUploadResponse(xhr) {
+  let data;
+  try {
+    data = JSON.parse(xhr.responseText);
+  } catch {
+    throw new Error('Invalid server response during upload');
+  }
+
+  if (xhr.status < 200 || xhr.status >= 300) {
+    const message =
+      data?.error?.message ||
+      data?.message ||
+      (xhr.status === 413
+        ? 'File is too large to upload.'
+        : `Upload failed (HTTP ${xhr.status})`);
+    throw new Error(message);
+  }
+
+  if (!data.success) {
+    throw new Error(data?.error?.message || data?.message || 'Upload failed');
+  }
+
+  return data.data;
+}
 
 /**
  * Upload Service
  */
 export const uploadService = {
-  /**
-   * Upload image from URL
-   */
   async uploadFromURL(imageUrl, folder = 'posts') {
     try {
       const response = await api.post(API_ENDPOINTS.UPLOAD.URL, { imageUrl, folder });
@@ -18,22 +44,79 @@ export const uploadService = {
     }
   },
 
-  /**
-   * Upload image from base64
-   */
   async uploadFromBase64(base64, folder = 'posts') {
     try {
       const response = await api.post(API_ENDPOINTS.UPLOAD.BASE64, { base64, folder });
-      return response.success ? response.data : null;
+      if (!response.success) {
+        throw new Error(response?.error?.message || 'Upload failed');
+      }
+      return response.data;
     } catch (error) {
       console.error('Upload from base64 error:', error);
-      throw error;
+      throw new Error(error.message || 'Failed to upload media');
     }
   },
 
-  /**
-   * Get optimized image URL
-   */
+  uploadFileWithProgress(file, folder = 'posts', onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const url = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.UPLOAD.FILE}`;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', folder);
+
+      xhr.open('POST', url);
+      xhr.withCredentials = true;
+      xhr.timeout = 5 * 60 * 1000;
+
+      const token = tokenManager.getAccessToken();
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      }
+
+      if (onProgress && xhr.upload) {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            onProgress(Math.round((event.loaded / event.total) * 100));
+          }
+        };
+      }
+
+      xhr.onload = () => {
+        try {
+          resolve(parseUploadResponse(xhr));
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      xhr.onerror = () => reject(new Error('Network error during upload. Check your connection.'));
+      xhr.ontimeout = () =>
+        reject(new Error('Upload timed out. Try a smaller file or a stronger connection.'));
+      xhr.onabort = () => reject(new Error('Upload was cancelled.'));
+
+      xhr.send(formData);
+    });
+  },
+
+  async uploadMedia({ file, dataUrl, folder = 'posts', onProgress }) {
+    if (file) {
+      const isVideo = file.type?.startsWith('video/');
+      const limit = isVideo ? MAX_VIDEO_SIZE_BYTES : MAX_IMAGE_SIZE_BYTES;
+      if (file.size > limit) {
+        const limitLabel = isVideo ? '50 MB' : '10 MB';
+        throw new Error(`File is too large (${formatBytes(file.size)}). Maximum size is ${limitLabel}.`);
+      }
+      return this.uploadFileWithProgress(file, folder, onProgress);
+    }
+
+    if (dataUrl) {
+      return this.uploadFromBase64(dataUrl, folder);
+    }
+
+    throw new Error('No media provided for upload');
+  },
+
   async getOptimizedImage(publicId) {
     try {
       const response = await api.get(API_ENDPOINTS.UPLOAD.OPTIMIZE(publicId));
@@ -44,9 +127,6 @@ export const uploadService = {
     }
   },
 
-  /**
-   * Get transformed image URL
-   */
   async getTransformedImage(publicId) {
     try {
       const response = await api.get(API_ENDPOINTS.UPLOAD.TRANSFORM(publicId));
@@ -57,9 +137,6 @@ export const uploadService = {
     }
   },
 
-  /**
-   * Get square image URL
-   */
   async getSquareImage(publicId) {
     try {
       const response = await api.get(API_ENDPOINTS.UPLOAD.SQUARE(publicId));
@@ -70,9 +147,6 @@ export const uploadService = {
     }
   },
 
-  /**
-   * Delete image
-   */
   async deleteImage(publicId) {
     try {
       const response = await api.delete(API_ENDPOINTS.UPLOAD.DELETE(publicId));
@@ -83,27 +157,14 @@ export const uploadService = {
     }
   },
 
-  /**
-   * Upload base64 image (alias for uploadFromBase64)
-   */
   async uploadBase64(base64, folder = 'posts') {
     return this.uploadFromBase64(base64, folder);
   },
-
-  /**
-   * Upload file (multipart form data)
-   */
-  async uploadFile(file, folder = 'posts') {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('folder', folder);
-
-      const response = await api.upload(API_ENDPOINTS.UPLOAD.URL, formData);
-      return response.success ? response.data : null;
-    } catch (error) {
-      console.error('Upload file error:', error);
-      throw error;
-    }
-  },
 };
+
+function formatBytes(bytes) {
+  if (!bytes) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

@@ -4,10 +4,12 @@ import { ArrowLeft, X, Type, Sparkles, Image as ImageIcon, Camera, Loader2, User
 import { motion, AnimatePresence } from "framer-motion";
 import logo from "../assets/logo.svg";
 import { storyService } from "../services/storyService";
-import { uploadService } from "../services/uploadService";
+import { uploadService, MAX_VIDEO_SIZE_BYTES } from "../services/uploadService";
 import { userService } from "../services";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { toast } from "react-hot-toast";
+import ImageQualityPicker from "./ImageQualityPicker";
+import { compressImageDataUrl, estimateDataUrlSize, formatFileSize } from "../utils/imageCompression";
 
 const STORY_RECENTS_KEY = "storyRecents";
 const MAX_RECENTS = 10;
@@ -17,6 +19,7 @@ export default function AddStory() {
   const { username } = useUserProfile();
   const [step, setStep] = useState("select");
   const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [mediaType, setMediaType] = useState("image");
   const [showFilters, setShowFilters] = useState(false);
@@ -29,6 +32,11 @@ export default function AddStory() {
   const [stickerOverlays, setStickerOverlays] = useState([]);
   const [filter, setFilter] = useState("none");
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState("");
+  const [showQualityPicker, setShowQualityPicker] = useState(false);
+  const [pendingStoryUpload, setPendingStoryUpload] = useState(null);
   const [showTagModal, setShowTagModal] = useState(false);
   const [taggedPeople, setTaggedPeople] = useState([]);
   const [followingList, setFollowingList] = useState([]);
@@ -110,6 +118,17 @@ export default function AddStory() {
     const file = e.target.files[0];
     if (!file) return;
     const isVideo = type === "video" || file.type.startsWith("video/");
+
+    if (isVideo && file.size > MAX_VIDEO_SIZE_BYTES) {
+      const message = `Video is too large (${formatFileSize(file.size)}). Maximum size is 50 MB.`;
+      setUploadError(message);
+      toast.error(message);
+      e.target.value = "";
+      return;
+    }
+
+    setUploadError(null);
+    setSelectedFile(file);
     const reader = new FileReader();
     reader.onloadend = () => {
       const url = reader.result;
@@ -118,10 +137,9 @@ export default function AddStory() {
       setImagePreview(url);
       setMediaType(isVideo ? "video" : "image");
       setStep("edit");
-      addToRecents(url);
+      if (!isVideo) addToRecents(url);
     };
-    if (isVideo) reader.readAsDataURL(file);
-    else reader.readAsDataURL(file);
+    reader.readAsDataURL(file);
     e.target.value = "";
   };
 
@@ -283,64 +301,128 @@ export default function AddStory() {
     return filterClasses[filterId] || "";
   };
 
+  const executeStoryShare = async ({ isVideo, file, dataUrl }) => {
+    setUploadProgress(0);
+    setUploadStatus(isVideo ? "Uploading video..." : "Uploading image...");
+
+    const uploadResponse = await uploadService.uploadMedia({
+      file: isVideo ? file : undefined,
+      dataUrl: isVideo ? undefined : dataUrl,
+      folder: "stories",
+      onProgress: (pct) => {
+        setUploadProgress(pct);
+        setUploadStatus(`Uploading... ${pct}%`);
+      },
+    });
+
+    if (!uploadResponse?.url) throw new Error("Failed to upload media");
+
+    setUploadStatus("Creating story...");
+
+    const overlays = [];
+    if (textValue.trim()) {
+      overlays.push({
+        type: "text",
+        content: textValue,
+        x: textPosition.x,
+        y: textPosition.y,
+        color: textColor,
+      });
+    }
+    stickerOverlays.forEach((sticker) => {
+      overlays.push({
+        type: "emoji",
+        content: sticker.emoji,
+        x: sticker.x,
+        y: sticker.y,
+      });
+    });
+
+    const storyResponse = await storyService.createStory({
+      mediaUrl: uploadResponse.url,
+      mediaType: isVideo ? "video" : "image",
+      caption: textValue || "",
+      overlays,
+      textColor,
+      textPosition,
+      taggedUsers: taggedPeople.map((p) => (typeof p === "object" ? p.uid || p._id || p.username : p)).filter(Boolean),
+    });
+
+    if (!storyResponse) throw new Error("Failed to create story");
+
+    toast.success("Story shared successfully!");
+    handleClose();
+    navigate("/home");
+  };
+
+  const handleQualitySelected = async (quality) => {
+    if (!pendingStoryUpload) return;
+
+    setShowQualityPicker(false);
+    setIsUploading(true);
+    setUploadError(null);
+    setUploadProgress(0);
+    setUploadStatus("Compressing image...");
+
+    try {
+      const compressed = await compressImageDataUrl(pendingStoryUpload.sourceUrl, quality);
+      await executeStoryShare({ isVideo: false, dataUrl: compressed });
+    } catch (error) {
+      console.error("Share story error:", error);
+      const message = error.message || "Failed to share story";
+      setUploadError(message);
+      toast.error(message);
+    } finally {
+      setPendingStoryUpload(null);
+      setIsUploading(false);
+      setUploadProgress(0);
+      setUploadStatus("");
+    }
+  };
+
   const handleShare = async () => {
     if (!selectedImage || isUploading) return;
 
-    setIsUploading(true);
+    setUploadError(null);
+    const isVideo = mediaType === "video";
+
     try {
       let sourceUrl = selectedImage.url;
 
-      // For images, bake only the filter; text/emojis are stored as overlays and rendered in StoryViewer
       if (mediaType === "image" && filter !== "none") {
         sourceUrl = await composeImageWithEnhancements(sourceUrl, true);
       }
 
-      let mediaUrl = sourceUrl;
-      if (sourceUrl.startsWith("data:")) {
-        const uploadResponse = await uploadService.uploadFromBase64(sourceUrl, "stories");
-        if (!uploadResponse?.url) throw new Error("Failed to upload media");
-        mediaUrl = uploadResponse.url;
+      if (isVideo) {
+        if (!selectedFile) {
+          setUploadError("Video file is missing. Please re-select the video.");
+          toast.error("Video file is missing. Please re-select the video.");
+          return;
+        }
+
+        setIsUploading(true);
+        try {
+          await executeStoryShare({ isVideo: true, file: selectedFile });
+        } catch (error) {
+          console.error("Share story error:", error);
+          const message = error.message || "Failed to share story";
+          setUploadError(message);
+          toast.error(message);
+        } finally {
+          setIsUploading(false);
+          setUploadProgress(0);
+          setUploadStatus("");
+        }
+        return;
       }
 
-      const overlays = [];
-      if (textValue.trim()) {
-        overlays.push({
-          type: "text",
-          content: textValue,
-          x: textPosition.x,
-          y: textPosition.y,
-          color: textColor,
-        });
-      }
-      stickerOverlays.forEach((sticker) => {
-        overlays.push({
-          type: "emoji",
-          content: sticker.emoji,
-          x: sticker.x,
-          y: sticker.y,
-        });
-      });
-
-      const storyResponse = await storyService.createStory({
-        mediaUrl,
-        mediaType: mediaType || "image",
-        caption: textValue || "",
-        overlays,
-        textColor,
-        textPosition,
-        taggedUsers: taggedPeople.map((p) => (typeof p === "object" ? p.uid || p._id || p.username : p)).filter(Boolean),
-      });
-
-      if (!storyResponse) throw new Error("Failed to create story");
-
-      toast.success("Story shared successfully!");
-      handleClose();
-      navigate("/home");
+      setPendingStoryUpload({ sourceUrl });
+      setShowQualityPicker(true);
     } catch (error) {
       console.error("Share story error:", error);
-      toast.error(error.message || "Failed to share story");
-    } finally {
-      setIsUploading(false);
+      const message = error.message || "Failed to share story";
+      setUploadError(message);
+      toast.error(message);
     }
   };
 
@@ -348,6 +430,7 @@ export default function AddStory() {
     stopCamera();
     setStep("select");
     setSelectedImage(null);
+    setSelectedFile(null);
     setImagePreview(null);
     setMediaType("image");
     setShowFilters(false);
@@ -543,15 +626,38 @@ export default function AddStory() {
         >
           <X className="w-6 h-6 text-white" />
         </button>
-        <button
-          onClick={handleShare}
-          disabled={isUploading}
-          className="px-5 py-2 bg-primary hover:bg-primary-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-full text-white font-medium transition flex items-center gap-2"
-        >
-          {isUploading && <Loader2 className="w-4 h-4 animate-spin" />}
-          {isUploading ? 'Sharing...' : 'Share'}
-        </button>
+        <div className="flex flex-col items-end gap-1">
+          {uploadError && <p className="text-xs text-red-400 max-w-[200px] text-right">{uploadError}</p>}
+          {uploadStatus && <p className="text-xs text-gray-400">{uploadStatus}</p>}
+          {isUploading && uploadProgress > 0 && (
+            <div className="w-24 h-1 bg-gray-800 rounded-full overflow-hidden">
+              <div className="h-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} />
+            </div>
+          )}
+          <button
+            onClick={handleShare}
+            disabled={isUploading}
+            className="px-5 py-2 bg-primary hover:bg-primary-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-full text-white font-medium transition flex items-center gap-2"
+          >
+            {isUploading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isUploading ? "Sharing..." : "Share"}
+          </button>
+        </div>
       </div>
+
+      <ImageQualityPicker
+        isOpen={showQualityPicker}
+        onClose={() => {
+          setShowQualityPicker(false);
+          setPendingStoryUpload(null);
+        }}
+        onSelect={handleQualitySelected}
+        estimatedSize={
+          pendingStoryUpload?.sourceUrl
+            ? formatFileSize(estimateDataUrlSize(pendingStoryUpload.sourceUrl))
+            : null
+        }
+      />
 
       {/* Image/Video Preview with Filter */}
       <div
