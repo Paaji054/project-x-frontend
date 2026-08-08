@@ -1,6 +1,46 @@
 import { api } from '../utils/httpClient';
 import { API_ENDPOINTS } from '../config/api';
 
+function toPlainObject(value) {
+  if (value == null) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) return value;
+  return {};
+}
+
+function normalizeSender(sender) {
+  if (!sender || typeof sender !== 'object' || Array.isArray(sender)) return null;
+  return {
+    uid: sender.uid,
+    username: sender.username,
+    displayName: sender.displayName,
+    avatar: sender.avatar || sender.profilePhoto || null,
+    profilePhoto: sender.profilePhoto || sender.avatar || null,
+  };
+}
+
+function normalizeMessage(message) {
+  if (!message || typeof message !== 'object') return message;
+  return {
+    ...message,
+    reactions: toPlainObject(message.reactions),
+    sender: normalizeSender(message.sender),
+  };
+}
+
+function normalizeConversation(conversation) {
+  if (!conversation || typeof conversation !== 'object') return conversation;
+  return {
+    ...conversation,
+    unreadCounts: toPlainObject(conversation.unreadCounts),
+    lastMessage: conversation.lastMessage && typeof conversation.lastMessage === 'object'
+      ? conversation.lastMessage
+      : conversation.lastMessageText
+        ? { text: conversation.lastMessageText, createdAt: conversation.lastMessageAt || null }
+        : null,
+    otherUser: normalizeSender(conversation.otherUser) || conversation.otherUser || null,
+  };
+}
+
 /**
  * Message Service
  */
@@ -12,7 +52,7 @@ export const messageService = {
     try {
       // Backend expects userId, not participantIds
       const response = await api.post(API_ENDPOINTS.MESSAGES.CREATE_CONVERSATION, { userId });
-      return response.success ? response.data.conversation : null;
+      return response.success ? normalizeConversation(response.data.conversation) : null;
     } catch (error) {
       console.error('Create conversation error:', error);
       throw error;
@@ -29,7 +69,9 @@ export const messageService = {
       // Backend returns: { success: true, data: { conversations: [] } }
       // Each conversation has: _id, participants, isGroup, name, avatar, creatorId, admins, 
       // lastMessageText, lastMessageAt, unreadCounts, otherUser (populated), unreadCount
-      return response.success ? response.data.conversations : [];
+      return response.success
+        ? (response.data.conversations || []).map(normalizeConversation)
+        : [];
     } catch (error) {
       console.error('Get conversations error:', error);
       throw error;
@@ -59,7 +101,7 @@ export const messageService = {
       // Backend returns: { success: true, data: { message: {...} }, message: 'Message sent' }
       // Message fields: _id, conversationId, senderId, recipientId, text, mediaUrl, type, 
       // createdAt, updatedAt, sender: { uid, username, displayName, avatar }
-      return response.success ? response.data.message : null;
+      return response.success ? normalizeMessage(response.data.message) : null;
     } catch (error) {
       console.error('Send message error:', error);
       throw error;
@@ -77,7 +119,9 @@ export const messageService = {
       // Each message has: _id, conversationId, senderId, recipientId, text, mediaUrl, type,
       // duration, fileSize, readAt, deliveredAt, reactions, replyTo, isDeleted,
       // createdAt, updatedAt, sender: { uid, username, displayName, avatar }
-      return response.success ? response.data.messages : [];
+      return response.success
+        ? (response.data.messages || []).map(normalizeMessage)
+        : [];
     } catch (error) {
       console.error('Get messages error:', error);
       throw error;
@@ -90,7 +134,7 @@ export const messageService = {
   async editMessage(messageId, text) {
     try {
       const response = await api.patch(API_ENDPOINTS.MESSAGES.EDIT_MESSAGE(messageId), { text });
-      return response.success ? response.data.message : null;
+      return response.success ? normalizeMessage(response.data.message) : null;
     } catch (error) {
       console.error('Edit message error:', error);
       throw error;

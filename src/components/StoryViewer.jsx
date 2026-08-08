@@ -365,6 +365,60 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                     />
                   )}
 
+                  {/* Text and emoji overlays (persisted from story creation) */}
+                  {(() => {
+                    const overlayItems = Array.isArray(currentStory.overlays) && currentStory.overlays.length > 0
+                      ? currentStory.overlays
+                      : currentStory.caption
+                        ? [{
+                            type: 'text',
+                            content: currentStory.caption,
+                            x: currentStory.textPosition?.x ?? 50,
+                            y: currentStory.textPosition?.y ?? 50,
+                            color: currentStory.textColor || '#FFFFFF',
+                          }]
+                        : [];
+
+                    if (overlayItems.length === 0) return null;
+
+                    return (
+                      <div className="absolute inset-0 pointer-events-none z-[5]">
+                        {overlayItems.map((overlay, idx) => (
+                          overlay.type === 'emoji' ? (
+                            <span
+                              key={`overlay-${idx}`}
+                              className="absolute select-none"
+                              style={{
+                                left: `${overlay.x ?? 50}%`,
+                                top: `${overlay.y ?? 50}%`,
+                                transform: 'translate(-50%, -50%)',
+                                fontSize: 'clamp(1.5rem, 8vw, 2.5rem)',
+                              }}
+                            >
+                              {overlay.content}
+                            </span>
+                          ) : (
+                            <p
+                              key={`overlay-${idx}`}
+                              className="absolute select-none whitespace-pre-wrap text-center font-bold px-2"
+                              style={{
+                                left: `${overlay.x ?? 50}%`,
+                                top: `${overlay.y ?? 50}%`,
+                                transform: 'translate(-50%, -50%)',
+                                color: overlay.color || currentStory.textColor || '#FFFFFF',
+                                textShadow: '2px 2px 6px rgba(0,0,0,0.85)',
+                                maxWidth: '85%',
+                                fontSize: 'clamp(1rem, 4.5vw, 1.5rem)',
+                              }}
+                            >
+                              {overlay.content}
+                            </p>
+                          )
+                        ))}
+                      </div>
+                    );
+                  })()}
+
                   {/* Pause Indicator */}
                   {isPaused && (
                     <motion.div

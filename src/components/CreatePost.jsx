@@ -972,13 +972,27 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
     try {
       setIsGeneratingCaption(true);
       const context = category !== 'general' ? `A ${category} post` : '';
-      const result = await aiService.generateCaption(null, context);
+      const imageSource = finalEditedImage || croppedImage || imagePreview;
+
+      let imageUrl = null;
+      if (imageSource) {
+        if (imageSource.startsWith('http://') || imageSource.startsWith('https://')) {
+          imageUrl = imageSource;
+        } else if (imageSource.startsWith('data:') || imageSource.startsWith('blob:')) {
+          const uploadResponse = await uploadService.uploadFromBase64(imageSource, 'posts');
+          imageUrl = uploadResponse?.url || null;
+        }
+      }
+
+      const result = await aiService.generateCaption(imageUrl, context);
       if (result?.caption) {
         setCaption(result.caption.slice(0, 2200));
         toast.success('Caption generated!');
+      } else {
+        toast.error('Failed to generate caption');
       }
     } catch (err) {
-      const msg = err?.response?.data?.error?.message || err?.message || 'Failed to generate caption';
+      const msg = err?.message || err?.data?.error?.message || 'Failed to generate caption';
       toast.error(msg);
     } finally {
       setIsGeneratingCaption(false);

@@ -183,8 +183,8 @@ export default function AddStory() {
     dramatic: "brightness(75%) contrast(150%) saturate(150%)",
   };
 
-  // Bake filter, text overlay, and sticker overlays into a single JPEG data URL
-  const composeImageWithEnhancements = async (imageUrl) => {
+  // Bake filter into image; optionally include text/sticker overlays
+  const composeImageWithEnhancements = async (imageUrl, filterOnly = false) => {
     const CANVAS_W = 1080;
     const CANVAS_H = 1920;
     const canvas = document.createElement("canvas");
@@ -227,8 +227,8 @@ export default function AddStory() {
     ctx.drawImage(img, dx, dy, dw, dh);
     ctx.filter = "none";
 
-    // Draw text overlay
-    if (textValue.trim()) {
+    // Draw text overlay (skip when filter-only — rendered in StoryViewer from saved overlays)
+    if (!filterOnly && textValue.trim()) {
       const fontSize = Math.round(CANVAS_W * 0.065);
       ctx.font = `bold ${fontSize}px sans-serif`;
       ctx.fillStyle = textColor;
@@ -249,8 +249,8 @@ export default function AddStory() {
       ctx.shadowBlur = 0;
     }
 
-    // Draw sticker overlays
-    if (stickerOverlays.length > 0) {
+    // Draw sticker overlays (skip when filter-only — rendered in StoryViewer from saved overlays)
+    if (!filterOnly && stickerOverlays.length > 0) {
       const emojiSize = Math.round(CANVAS_W * 0.09);
       ctx.font = `${emojiSize}px serif`;
       ctx.textAlign = "center";
@@ -290,9 +290,9 @@ export default function AddStory() {
     try {
       let sourceUrl = selectedImage.url;
 
-      // For images, bake filter / text / stickers into a single composited image
-      if (mediaType === "image" && (filter !== "none" || textValue.trim() || stickerOverlays.length > 0)) {
-        sourceUrl = await composeImageWithEnhancements(sourceUrl);
+      // For images, bake only the filter; text/emojis are stored as overlays and rendered in StoryViewer
+      if (mediaType === "image" && filter !== "none") {
+        sourceUrl = await composeImageWithEnhancements(sourceUrl, true);
       }
 
       let mediaUrl = sourceUrl;
@@ -302,10 +302,32 @@ export default function AddStory() {
         mediaUrl = uploadResponse.url;
       }
 
+      const overlays = [];
+      if (textValue.trim()) {
+        overlays.push({
+          type: "text",
+          content: textValue,
+          x: textPosition.x,
+          y: textPosition.y,
+          color: textColor,
+        });
+      }
+      stickerOverlays.forEach((sticker) => {
+        overlays.push({
+          type: "emoji",
+          content: sticker.emoji,
+          x: sticker.x,
+          y: sticker.y,
+        });
+      });
+
       const storyResponse = await storyService.createStory({
         mediaUrl,
         mediaType: mediaType || "image",
         caption: textValue || "",
+        overlays,
+        textColor,
+        textPosition,
         taggedUsers: taggedPeople.map((p) => (typeof p === "object" ? p.uid || p._id || p.username : p)).filter(Boolean),
       });
 
