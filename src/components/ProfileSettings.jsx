@@ -97,7 +97,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
         setAvatarDescription('');
       }
     } catch (err) {
-      toast.error(err?.response?.data?.error?.message || err?.message || 'Failed to generate avatar');
+      toast.error(err?.message || err?.data?.error?.message || 'Failed to generate avatar');
     } finally {
       setIsGeneratingAvatar(false);
     }

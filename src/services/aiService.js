@@ -111,7 +111,11 @@ export const aiService = {
    */
   async generateAvatar(description) {
     try {
-      const response = await api.post(API_ENDPOINTS.AI.GENERATE_AVATAR, { description });
+      const response = await api.postWithTimeout(
+        API_ENDPOINTS.AI.GENERATE_AVATAR,
+        { description },
+        90000
+      );
       return response.success ? response.data : null;
     } catch (error) {
       console.error('Generate avatar error:', error);

@@ -77,14 +77,16 @@ class HTTPClient {
   /**
    * Handle fetch with timeout
    */
-  async fetchWithTimeout(url, options) {
+  async fetchWithTimeout(url, options = {}) {
+    const timeoutMs = options.timeout ?? this.timeout;
+    const { timeout: _ignored, ...fetchOptions } = options;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const response = await fetch(url, {
-        ...options,
-        credentials: 'include', // Enable credentials for cookie support
+        ...fetchOptions,
+        credentials: 'include',
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
@@ -229,12 +231,13 @@ class HTTPClient {
     return this.request(url, { method: 'GET' }, requiresAuth);
   }
 
-  async post(endpoint, data = {}, requiresAuth = true) {
+  async post(endpoint, data = {}, requiresAuth = true, timeout) {
     return this.request(
       endpoint,
       {
         method: 'POST',
         body: JSON.stringify(data),
+        ...(timeout ? { timeout } : {}),
       },
       requiresAuth
     );
@@ -307,4 +310,6 @@ export const api = {
   patch: (...args) => httpClient.patch(...args),
   delete: (...args) => httpClient.delete(...args),
   upload: (...args) => httpClient.upload(...args),
+  postWithTimeout: (endpoint, data, timeout, requiresAuth = true) =>
+    httpClient.post(endpoint, data, requiresAuth, timeout),
 };

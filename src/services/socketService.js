@@ -366,6 +366,18 @@ class SocketService {
     }
   }
 
+  onNewNotification(callback) {
+    if (this.socket) {
+      this.socket.on('new-notification', callback);
+    }
+  }
+
+  offNewNotification(callback) {
+    if (this.socket) {
+      this.socket.off('new-notification', callback);
+    }
+  }
+
   /**
    * Remove all event listeners
    */

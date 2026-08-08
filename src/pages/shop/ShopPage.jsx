@@ -80,7 +80,8 @@ export default function ShopPage() {
         razorpay.open();
       }
     } catch (error) {
-      toast.error('Failed to create order: ' + error.message);
+      const details = error.data?.error?.details?.[0]?.message;
+      toast.error(details || error.message || 'Failed to create order');
     } finally {
       setLoading(false);
     }
@@ -173,18 +174,18 @@ export default function ShopPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
                     {packages.map((pkg, index) => (
                       <motion.div
-                        key={pkg._id || index}
+                        key={pkg.id ?? index}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, delay: index * 0.1 }}
                         whileHover={{ scale: 1.02, y: -4 }}
                         className={`bg-gray-100 dark:bg-[#1a1a1a] border ${
-                          pkg.isPopular 
-                            ? 'border-primary ring-2 ring-primary/50' 
+                          pkg.popular
+                            ? 'border-primary ring-2 ring-primary/50'
                             : 'border-gray-300 dark:border-gray-800'
                         } rounded-lg p-6 cursor-pointer hover:border-primary transition-all duration-300 relative`}
                       >
-                        {pkg.isPopular && (
+                        {pkg.popular && (
                           <div className="absolute -top-3 right-4 bg-primary text-white text-xs px-3 py-1 rounded-full">
                             Most Popular
                           </div>
@@ -195,7 +196,7 @@ export default function ShopPage() {
                           </div>
                           <div>
                             <h4 className="text-xl font-bold text-black dark:text-white mb-2">
-                              {pkg.name}
+                              {pkg.name || `${pkg.credits.toLocaleString()} Credits`}
                             </h4>
                             <p className="text-3xl font-bold text-primary mb-1">
                               {pkg.credits.toLocaleString()}
@@ -217,7 +218,7 @@ export default function ShopPage() {
                             <motion.button
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
-                              onClick={() => handlePurchase(pkg._id)}
+                              onClick={() => handlePurchase(pkg.id)}
                               disabled={loading}
                               className="w-full px-4 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
                             >

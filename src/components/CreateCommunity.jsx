@@ -4,6 +4,7 @@ import { ArrowLeft, Globe, Lock, Upload, Sparkles, Loader2 } from "lucide-react"
 import { toast } from "react-hot-toast";
 import { communityService } from "../services/communityService";
 import { aiService } from "../services/aiService";
+import { uploadService } from "../services/uploadService";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { COMMUNITY_CATEGORIES } from "../constants/communityCategories";
 
@@ -111,10 +112,32 @@ export default function CreateCommunity({ setActiveView }) {
     setRules(rules.filter((_, i) => i !== index));
   };
 
+  const uploadMediaIfNeeded = async (value, folder) => {
+    if (!value) return null;
+    if (!value.startsWith("data:")) return value;
+    const uploaded = await uploadService.uploadFromBase64(value, folder);
+    return uploaded?.url || null;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate that at least one topic is selected
+    const name = communityName.trim();
+    const desc = description.trim();
+
+    if (name.length < 3) {
+      toast.error("Community name must be at least 3 characters");
+      return;
+    }
+    if (name.length > 50) {
+      toast.error("Community name must be 50 characters or less");
+      return;
+    }
+    if (desc.length > 500) {
+      toast.error("Description must be 500 characters or less");
+      return;
+    }
+
     if (selectedTopics.length === 0) {
       toast.error("Please select at least one topic", { duration: 3000 });
       return;
@@ -124,20 +147,18 @@ export default function CreateCommunity({ setActiveView }) {
       setIsCreating(true);
       setError("");
 
-      // Create new community object
       const newCommunity = {
-        name: communityName,
-        description: description,
+        name,
+        description: desc,
         type: communityType,
         topics: selectedTopics,
         rules: rules.length > 0 ? rules : [],
       };
 
-      // Add banner and icon if provided
-      if (bannerPreview) newCommunity.banner = bannerPreview;
-      if (iconPreview) newCommunity.icon = iconPreview;
-      if (bannerVideoPreview) newCommunity.bannerVideo = bannerVideoPreview;
-      if (profileVideoPreview) newCommunity.profileVideo = profileVideoPreview;
+      if (bannerPreview) newCommunity.banner = await uploadMediaIfNeeded(bannerPreview, "community-banners");
+      if (iconPreview) newCommunity.icon = await uploadMediaIfNeeded(iconPreview, "community-icons");
+      if (bannerVideoPreview) newCommunity.bannerVideo = await uploadMediaIfNeeded(bannerVideoPreview, "community-banners");
+      if (profileVideoPreview) newCommunity.profileVideo = await uploadMediaIfNeeded(profileVideoPreview, "community-icons");
 
       // Create community via API
       const response = await communityService.createCommunity(newCommunity);
@@ -163,7 +184,9 @@ export default function CreateCommunity({ setActiveView }) {
       }
     } catch (err) {
       console.error("Error creating community:", err);
-      setError(err.response?.data?.message || "Failed to create community");
+      const details = err.data?.error?.details?.[0]?.message;
+      setError(details || err.message || "Failed to create community");
+      toast.error(details || err.message || "Failed to create community");
     } finally {
       setIsCreating(false);
     }
@@ -202,6 +225,8 @@ export default function CreateCommunity({ setActiveView }) {
                   value={communityName}
                   onChange={(e) => setCommunityName(e.target.value)}
                   required
+                  minLength={3}
+                  maxLength={50}
                   className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-900 border border-black dark:border-gray-700 rounded-lg text-black dark:text-white placeholder-gray-500 focus:outline-none focus:border-primary transition"
                   placeholder="Enter community name"
                 />
@@ -217,6 +242,7 @@ export default function CreateCommunity({ setActiveView }) {
                   onChange={(e) => setDescription(e.target.value)}
                   required
                   rows={6}
+                  maxLength={500}
                   className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-900 border border-black dark:border-gray-700 rounded-lg text-black dark:text-white placeholder-gray-500 focus:outline-none focus:border-primary transition resize-none"
                   placeholder="Describe your community"
                 />

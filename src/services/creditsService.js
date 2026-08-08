@@ -11,19 +11,18 @@ export const creditsService = {
   async getPackages() {
     try {
       const response = await api.get(API_ENDPOINTS.CREDITS.PACKAGES);
-      return response.success ? response.data : [];
+      return response.success ? (response.data?.packages ?? []) : [];
     } catch (error) {
       console.error('Get credit packages error:', error);
       throw error;
     }
   },
 
-  /**
-   * Create credit order
-   */
   async createOrder(packageId) {
     try {
-      const response = await api.post(API_ENDPOINTS.CREDITS.ORDER, { packageId });
+      const response = await api.post(API_ENDPOINTS.CREDITS.ORDER, {
+        packageId: Number(packageId),
+      });
       return response.success ? response.data : null;
     } catch (error) {
       console.error('Create credit order error:', error);

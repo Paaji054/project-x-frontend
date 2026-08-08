@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import LiveProfilePhoto from "../components/LiveProfilePhoto";
 import { getProfileVideoUrl } from "../utils/profileVideos";
 import { notificationService, userService } from "../services";
+import { socketService } from "../services/socketService";
 import { toast } from "react-hot-toast";
 
 export default function Notifications({ setActiveView, onViewUserProfile, previousView = "home" }) {
@@ -12,7 +13,8 @@ export default function Notifications({ setActiveView, onViewUserProfile, previo
   const [notifications, setNotifications] = useState({
     today: [],
     yesterday: [],
-    thisWeek: []
+    thisWeek: [],
+    earlier: [],
   });
   const [allNotifications, setAllNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,13 +23,20 @@ export default function Notifications({ setActiveView, onViewUserProfile, previo
   // Fetch notifications on mount
   useEffect(() => {
     fetchNotifications();
+
+    const handleNewNotification = () => {
+      fetchNotifications();
+    };
+
+    socketService.onNewNotification(handleNewNotification);
+    return () => socketService.offNewNotification(handleNewNotification);
   }, []);
 
   const fetchNotifications = async () => {
     try {
       setLoading(true);
       setError(null);
-      const notifs = await notificationService.getNotifications();
+      const notifs = await notificationService.getNotifications(50, 0);
       setAllNotifications(notifs || []);
       
       // Group notifications by time period
@@ -46,22 +55,30 @@ export default function Notifications({ setActiveView, onViewUserProfile, previo
     const today = [];
     const yesterday = [];
     const thisWeek = [];
+    const earlier = [];
 
     notifs.forEach(notif => {
       const createdAt = new Date(notif.createdAt);
       const diffHours = (now - createdAt) / (1000 * 60 * 60);
 
+      const username = notif.sender?.username || "User";
+      let message = notif.message || getNotificationMessage(notif);
+      if (notif.type === "comment" && notif.preview) {
+        message = `commented: "${notif.preview}"`;
+      }
+
       const transformed = {
         id: notif._id,
         type: notif.type,
-        avatar: notif.sender?.profilePicture || "https://i.pravatar.cc/100",
-        username: notif.sender?.username || "user",
-        message: notif.message || getNotificationMessage(notif),
+        avatar: notif.sender?.profilePhoto || notif.sender?.profilePicture || notif.sender?.avatar || "https://i.pravatar.cc/100",
+        username,
+        message,
         action: getNotificationAction(notif),
         actionType: notif.type,
         isFollowing: notif.isFollowing || false,
         showDismiss: notif.type === 'follow_request',
-        isRead: notif.isRead
+        isRead: notif.read === true,
+        senderUid: notif.sender?.uid || notif.actorId,
       };
 
       if (diffHours < 24) {
@@ -70,21 +87,24 @@ export default function Notifications({ setActiveView, onViewUserProfile, previo
         yesterday.push(transformed);
       } else if (diffHours < 168) {
         thisWeek.push(transformed);
+      } else {
+        earlier.push(transformed);
       }
     });
 
-    return { today, yesterday, thisWeek };
+    return { today, yesterday, thisWeek, earlier };
   };
 
   const getNotificationMessage = (notif) => {
     const typeMessages = {
       follow: 'started following you',
       like: 'liked your post',
-      comment: `commented: ${notif.content || ''}`,
+      comment: 'commented on your post',
       follow_request: 'requested to follow you',
-      mention: 'mentioned you in a post'
+      mention: 'mentioned you in a post',
+      message: notif.message || 'sent you a message',
     };
-    return typeMessages[notif.type] || 'sent you a notification';
+    return typeMessages[notif.type] || notif.message || 'sent you a notification';
   };
 
   const getNotificationAction = (notif) => {
@@ -303,7 +323,7 @@ export default function Notifications({ setActiveView, onViewUserProfile, previo
                 {notification.username}
               </button>
               {" "}
-              {notification.message.replace(notification.username, "").trim()}
+              {notification.message}
             </>
           ) : (
             notification.message
@@ -411,6 +431,7 @@ export default function Notifications({ setActiveView, onViewUserProfile, previo
             {renderSection("Today", "today")}
             {renderSection("Yesterday", "yesterday")}
             {renderSection("This Week", "thisWeek")}
+            {renderSection("Earlier", "earlier")}
           </>
         )}
       </div>
