@@ -11,6 +11,7 @@ const AITools = () => {
   const [userCredits, setUserCredits] = useState(0);
   const [activeTab, setActiveTab] = useState('image');
   const [result, setResult] = useState(null);
+  const [aiStatus, setAiStatus] = useState(null);
 
   // Form states
   const [imagePrompt, setImagePrompt] = useState('');
@@ -30,25 +31,37 @@ const AITools = () => {
 
   const loadInitialData = async () => {
     try {
-      const [costs, balance] = await Promise.all([
+      const [costs, balance, status] = await Promise.all([
         aiService.getCreditCosts(),
-        userService.getCreditsBalance()
+        userService.getCreditsBalance(),
+        aiService.getStatus(),
       ]);
       setCreditCosts(costs?.costs || costs || {});
       setUserCredits(balance.credits || 0);
+      setAiStatus(status);
     } catch (err) {
       console.error('Failed to load AI tools data:', err);
     }
   };
 
+  const ensureFeatureReady = (configured, label) => {
+    if (configured === false) {
+      toast.error(`${label} is not configured on the server. Check API keys.`);
+      return false;
+    }
+    return true;
+  };
+
   const handleGenerateImage = async () => {
     if (!imagePrompt.trim()) return;
+    if (!ensureFeatureReady(aiStatus?.imageGeneration?.configured, 'Image generation')) return;
     try {
       setLoading(true);
       setResult(null);
       const data = await aiService.generateImage(imagePrompt.trim(), {
         style: imageStyle,
         ratio: imageRatio,
+        useDeepAI: !aiStatus?.imageGeneration?.replicate && !!aiStatus?.imageGeneration?.deepai,
       });
       setResult({ type: 'image', data });
       await loadInitialData();
@@ -63,6 +76,7 @@ const AITools = () => {
 
   const handleGenerateCaption = async () => {
     if (!captionImageUrl && !captionContext) return;
+    if (!ensureFeatureReady(aiStatus?.captionGeneration?.configured, 'Caption generation')) return;
     try {
       setLoading(true);
       const data = await aiService.generateCaption(captionImageUrl || undefined, captionContext);
@@ -78,6 +92,7 @@ const AITools = () => {
 
   const handleGenerateBio = async () => {
     if (!bioDescription) return;
+    if (!ensureFeatureReady(aiStatus?.bioGeneration?.configured ?? aiStatus?.captionGeneration?.configured, 'Bio generation')) return;
     try {
       setLoading(true);
       const interests = bioDescription.split(/[,.]/).map(s => s.trim()).filter(Boolean);
@@ -94,6 +109,7 @@ const AITools = () => {
 
   const handleGenerateTheme = async () => {
     if (!themePrompt) return;
+    if (!ensureFeatureReady(aiStatus?.themeGeneration?.configured ?? aiStatus?.captionGeneration?.configured, 'Theme generation')) return;
     try {
       setLoading(true);
       const data = await aiService.generateTheme(themePrompt);
@@ -109,6 +125,7 @@ const AITools = () => {
 
   const handleGenerateAvatar = async () => {
     if (!avatarConfig.description) return;
+    if (!ensureFeatureReady(aiStatus?.avatarGeneration?.configured ?? aiStatus?.imageGeneration?.configured, 'Avatar generation')) return;
     try {
       setLoading(true);
       const data = await aiService.generateAvatar(avatarConfig.description);
@@ -127,6 +144,7 @@ const AITools = () => {
       toast.error('Community name and description (min 3 chars) are required');
       return;
     }
+    if (!ensureFeatureReady(aiStatus?.communityIconGeneration?.configured ?? aiStatus?.imageGeneration?.configured, 'Community icon generation')) return;
     try {
       setLoading(true);
       const data = await aiService.generateCommunityIcon(communityName, communityDescription);
@@ -244,6 +262,17 @@ const AITools = () => {
             </p>
           </div>
         </div>
+
+        {aiStatus && (
+          <div className="mb-4 p-3 rounded-xl border border-black/10 dark:border-gray-800 bg-[#fffcfa] dark:bg-[#0f0f0f] text-sm text-gray-600 dark:text-gray-400">
+            <span className="font-medium text-black dark:text-white">Service status: </span>
+            Text {aiStatus.captionGeneration?.configured ? 'ready' : 'needs OPENAI_API_KEY'} ·
+            Image {aiStatus.imageGeneration?.configured ? 'ready' : 'needs REPLICATE_API_TOKEN or DEEPAI_API_KEY'}
+            {aiStatus.imageGeneration?.configured && !aiStatus.imageGeneration?.replicate && aiStatus.imageGeneration?.deepai
+              ? ' (using DeepAI fallback)'
+              : ''}
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex overflow-x-auto mb-6 gap-2 p-1.5 rounded-2xl bg-[#fffcfa] dark:bg-[#0f0f0f] border border-black/10 dark:border-gray-800 scrollbar-hide">

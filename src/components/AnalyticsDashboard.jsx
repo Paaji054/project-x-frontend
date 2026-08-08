@@ -19,7 +19,7 @@ const AnalyticsDashboard = () => {
         analyticsService.getUserAnalytics(),
         analyticsService.getEngagementMetrics()
       ]);
-      setAnalytics(analyticsData);
+      setAnalytics(analyticsData?.analytics || analyticsData);
       setEngagement(engagementData);
     } catch (err) {
       setError('Failed to load analytics');
@@ -93,26 +93,54 @@ const AnalyticsDashboard = () => {
         </div>
 
         {/* Engagement Metrics */}
-        {engagement && (
+        {engagement?.metrics && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
               <FiTrendingUp className="mr-2" />
               Engagement Metrics
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <MetricItem
-                label="Engagement Rate"
-                value={`${engagement.engagementRate?.toFixed(2) || 0}%`}
+                label="Posts Created"
+                value={engagement.metrics.postsCreated || 0}
               />
               <MetricItem
-                label="Avg. Comments per Post"
-                value={engagement.avgCommentsPerPost?.toFixed(1) || 0}
+                label="Total Engagement"
+                value={engagement.metrics.totalEngagement || 0}
               />
               <MetricItem
-                label="Avg. Likes per Post"
-                value={engagement.avgLikesPerPost?.toFixed(1) || 0}
+                label="Best Post Engagement"
+                value={engagement.metrics.bestPost?.engagement || 0}
               />
             </div>
+            {engagement.metrics.bestPost && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Best Post Metrics</h3>
+                <div className="flex gap-4 items-start p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  {engagement.metrics.bestPost.imageUrl ? (
+                    <img
+                      src={engagement.metrics.bestPost.imageUrl}
+                      alt="Best post"
+                      className="w-24 h-24 rounded-lg object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-24 h-24 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs text-gray-500 p-2 text-center flex-shrink-0">
+                      {(engagement.metrics.bestPost.caption || 'Untitled').slice(0, 40)}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900 dark:text-white line-clamp-2">
+                      {engagement.metrics.bestPost.caption?.trim() || 'Untitled post'}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      {engagement.metrics.bestPost.likesCount || 0} likes ·{' '}
+                      {engagement.metrics.bestPost.commentsCount || 0} comments ·{' '}
+                      {engagement.metrics.bestPost.sharesCount || 0} shares
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

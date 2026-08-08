@@ -46,7 +46,11 @@ export const aiService = {
    */
   async generateImage(prompt, options = {}) {
     try {
-      const response = await api.post(API_ENDPOINTS.AI.GENERATE_IMAGE, { prompt, ...options });
+      const response = await api.postWithTimeout(
+        API_ENDPOINTS.AI.GENERATE_IMAGE,
+        { prompt, ...options },
+        90000
+      );
       if (!response.success || !response.data) return null;
       const data = response.data;
       return { url: data.imageUrl, ...data };
@@ -128,7 +132,11 @@ export const aiService = {
    */
   async generateCommunityIcon(communityName, description) {
     try {
-      const response = await api.post(API_ENDPOINTS.AI.GENERATE_COMMUNITY_ICON, { communityName, description });
+      const response = await api.postWithTimeout(
+        API_ENDPOINTS.AI.GENERATE_COMMUNITY_ICON,
+        { communityName, description },
+        90000
+      );
       return response.success ? response.data : null;
     } catch (error) {
       console.error('Generate community icon error:', error);
