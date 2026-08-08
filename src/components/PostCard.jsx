@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Heart } from "lucide-react";
+import { Heart, Bookmark } from "lucide-react";
 import ShareModal from "./ShareModal";
 import commentIcon from "../assets/comment.svg";
 import messageIcon from "../assets/message.svg";
@@ -15,7 +15,8 @@ export default function PostCard({
   onCommentClick, 
   isActive, 
   onViewUserProfile,
-  onClick
+  onClick,
+  onBookmarkChange
 }) {
   // Use post data if provided, otherwise fallback to defaults
   const postData = post || {};
@@ -25,6 +26,7 @@ export default function PostCard({
   const [likes, setLikes] = useState(postData.likesCount || postData.likes || 0);
   const [commentsCount, setCommentsCount] = useState(postData.commentsCount || 0);
   const [sharesCount, setSharesCount] = useState(postData.sharesCount || 0);
+  const [isSaved, setIsSaved] = useState(postData.isSaved || false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // Sync like state from backend when post data updates (e.g. after refresh/navigation)
@@ -33,7 +35,8 @@ export default function PostCard({
     setLikes(postData.likesCount ?? postData.likes ?? 0);
     setCommentsCount(postData.commentsCount ?? 0);
     setSharesCount(postData.sharesCount ?? 0);
-  }, [postData.isLiked, postData.likesCount, postData.likes, postData.commentsCount, postData.sharesCount]);
+    setIsSaved(postData.isSaved || false);
+  }, [postData.isLiked, postData.likesCount, postData.likes, postData.commentsCount, postData.sharesCount, postData.isSaved]);
 
   const postImage = postData.imageUrl || postData.image || postData.images?.[0];
   const profileImage = author.profilePhoto || author.avatar || author.profilePicture || postData.profileImage;
@@ -76,6 +79,28 @@ export default function PostCard({
 
   const handleShareClick = () => {
     setIsShareModalOpen(true);
+  };
+
+  const handleBookmark = async (e) => {
+    e?.stopPropagation?.();
+    const id = postData._id || postId;
+    if (!id) return;
+
+    const previousSaved = isSaved;
+    setIsSaved(!isSaved);
+
+    try {
+      if (previousSaved) {
+        await postService.unbookmarkPost(String(id));
+      } else {
+        await postService.bookmarkPost(String(id));
+      }
+      onBookmarkChange?.(String(id), !previousSaved);
+    } catch (err) {
+      console.error("Error toggling bookmark:", err);
+      toast.error("Failed to update bookmark");
+      setIsSaved(previousSaved);
+    }
   };
 
   // Feed variant (vertical list for Home)
@@ -164,6 +189,13 @@ export default function PostCard({
                 src={messageIcon}
                 alt="share"
                 className="h-6 w-6 cursor-pointer hover:scale-110 transition-transform duration-200 invert dark:invert-0"
+              />
+            </button>
+            <button onClick={handleBookmark} className="focus:outline-none ml-auto" aria-label={isSaved ? "Remove bookmark" : "Bookmark post"}>
+              <Bookmark
+                className={`h-6 w-6 cursor-pointer hover:scale-110 transition-all duration-200 ${
+                  isSaved ? "fill-primary text-primary" : "dark:text-white text-black"
+                }`}
               />
             </button>
           </div>
@@ -288,6 +320,13 @@ export default function PostCard({
                 src={messageIcon}
                 alt="share"
                 className="h-6 w-5 cursor-pointer hover:scale-110 transition-transform duration-200 invert dark:invert-0"
+              />
+            </button>
+            <button onClick={handleBookmark} className="focus:outline-none" aria-label={isSaved ? "Remove bookmark" : "Bookmark post"}>
+              <Bookmark
+                className={`h-5 w-5 cursor-pointer hover:scale-110 transition-all duration-200 ${
+                  isSaved ? "fill-primary text-primary" : "dark:text-white text-black"
+                }`}
               />
             </button>
           </div>

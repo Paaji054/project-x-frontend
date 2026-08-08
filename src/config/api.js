@@ -58,6 +58,7 @@ export const API_ENDPOINTS = {
     DELETE_COMMENT: (postId, commentId) => `/api/posts/${postId}/comments/${commentId}`,
     BOOKMARK: (postId) => `/api/posts/${postId}/bookmark`,
     UNBOOKMARK: (postId) => `/api/posts/${postId}/bookmark`,
+    BOOKMARKS: '/api/posts/bookmarks',
     SHARE: (postId) => `/api/posts/${postId}/share`,
     PIN_COMMENT: (postId, commentId) => `/api/posts/${postId}/comments/${commentId}/pin`,
     UNPIN_COMMENT: (postId, commentId) => `/api/posts/${postId}/comments/${commentId}/pin`,

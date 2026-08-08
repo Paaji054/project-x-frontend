@@ -1,6 +1,6 @@
 // Normal icons
 import { NavLink } from "react-router-dom";
-import { FiBarChart2, FiZap } from "react-icons/fi";
+import { FiBarChart2, FiZap, FiBookmark } from "react-icons/fi";
 import React, { useState, useEffect } from "react";
 import homeIcon from "../../assets/home.svg";
 import exploreIcon from "../../assets/explore.svg";
@@ -67,6 +67,7 @@ export default function Sidebar({ onLogout }) {
   const items = [
     { label: "Home", value: "/home", icon: homeIcon },
     { label: "Explore", value: "/explore", icon: exploreIcon },
+    { label: "Saved", value: "/saved", icon: null, isReactIcon: true, reactIcon: FiBookmark },
     { label: "Communities", value: "/communities", icon: communitiesIcon },
     { label: "Messages", value: "/messages", icon: messageIcon },
     { label: "Analytics", value: "/analytics", icon: null, isReactIcon: true },

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Heart, MoreVertical, Trash2, Flag, Reply, Pin, ChevronDown, ChevronUp } from "lucide-react";
 import LiveProfilePhoto from "./LiveProfilePhoto";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useAuth } from "../context/AuthContext";
 import { getProfileVideoUrl } from "../utils/profileVideos";
 import { formatDistanceToNow } from "date-fns";
 import ReportModal from "./ReportModal";
@@ -20,7 +21,9 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
   const [reportTargetId, setReportTargetId] = useState('');
   const [expandedReplies, setExpandedReplies] = useState({});
   const [repliesMap, setRepliesMap] = useState({});
-  const { profilePhoto, profileVideo, username } = useUserProfile();
+  const { profilePhoto, profileVideo, username: profileUsername } = useUserProfile();
+  const { user } = useAuth();
+  const username = user?.username || profileUsername;
   const isOwnPost = currentUserId && postOwnerId && postOwnerId === currentUserId;
 
   // Reset comments when modal opens/closes or initialComments changes
@@ -216,7 +219,8 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
             {comments.map((comment, index) => {
               const commentId = comment._id || comment.id;
               const commentContent = comment.content || comment.text;
-              const commentUser = comment.user?.username || comment.username || comment.author?.username || comment.user?.displayName || comment.author?.displayName || 'User';
+              const commentUser = comment.user?.username || comment.username || comment.author?.username || comment.user?.displayName || comment.author?.displayName;
+              const displayName = commentUser && commentUser !== 'user' ? commentUser : 'User';
               const commentImage = comment.user?.profilePhoto || comment.author?.profilePhoto || comment.author?.avatar || comment.image;
               const commentLikes = comment.likesCount || comment.likes || 0;
               const isCommentLiked = comment.isLiked || comment.liked;
@@ -254,7 +258,7 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
                       onClick={() => onViewUserProfile && onViewUserProfile(commentUser)}
                       className="font-semibold text-sm md:text-base dark:text-white text-black mb-1 hover:opacity-70 transition-opacity cursor-pointer"
                     >
-                      {commentUser}
+                      {displayName}
                     </button>
                     <p className="text-sm md:text-base dark:text-gray-300 text-gray-700 leading-relaxed break-words">{commentContent}</p>
                   </div>
@@ -346,7 +350,8 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
               {isExpanded && replies.length > 0 && (
                 <div className="ml-12 md:ml-14 mt-2 space-y-3 border-l-2 border-gray-200 dark:border-gray-700 pl-3">
                   {replies.map((reply) => {
-                    const replyUsername = reply.user?.username || reply.username || reply.author?.username || 'User';
+                    const replyUsername = reply.user?.username || reply.username || reply.author?.username;
+                    const replyDisplayName = replyUsername && replyUsername !== 'user' ? replyUsername : 'User';
                     return (
                       <motion.div
                         key={reply._id || reply.id}
@@ -368,7 +373,7 @@ export default function Comments({ isOpen, onClose, variant = "sidebar", initial
                               onClick={() => onViewUserProfile && replyUsername !== 'User' && onViewUserProfile(reply.user?.username || reply.username || reply.author?.username)}
                               className="font-semibold text-xs text-black dark:text-white hover:opacity-70 cursor-pointer"
                             >
-                              {replyUsername}
+                              {replyDisplayName}
                             </button>
                             <p className="text-xs text-gray-600 dark:text-gray-300 break-words">{reply.content || reply.text}</p>
                           </div>

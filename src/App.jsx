@@ -24,7 +24,7 @@ import CommunitiesPage from "./pages/communities/CommunitiesPage";
 import CreateCommunity from "./components/CreateCommunity";
 import CommunityDetail from "./components/CommunityDetail";
 import Notifications from "./components/Notifications";
-import AddStory from "./components/AddStory";
+import BookmarkedPostsPage from "./pages/saved/BookmarkedPostsPage";
 import OtherUserProfile from "./components/OtherUserProfile";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import SignInGoogleRedirect from "./pages/auth/SignInGoogleRedirect";
@@ -186,6 +186,12 @@ export default function App() {
     </ErrorBoundary>
   );
 
+  const BookmarkedPostsPageWrapper = () => (
+    <ErrorBoundary>
+      <BookmarkedPostsPage onViewUserProfile={handleViewUserProfile} />
+    </ErrorBoundary>
+  );
+
   return (
     <>
     <Toaster
@@ -242,6 +248,7 @@ export default function App() {
             <Routes>
               <Route path="/home" element={<HomePageWrapper />} />
               <Route path="/explore" element={<ExplorePageWrapper />} />
+              <Route path="/saved" element={<BookmarkedPostsPageWrapper />} />
               <Route path="/messages" element={<MessagesPageWrapper />} />
               <Route path="/profile" element={<ProfilePageWrapper />} />
               <Route path="/user/:username" element={<UserProfileWrapper />} />

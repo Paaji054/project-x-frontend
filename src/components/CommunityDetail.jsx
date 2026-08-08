@@ -285,7 +285,7 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
         ...(parentId ? { parentId } : {}),
       });
 
-      const newComment = response.comment || response.data || response;
+      const newComment = response?.comment || response?.data?.comment || response;
 
       // Only add to top-level list and increment count if NOT a reply
       if (!parentId) {
@@ -837,6 +837,12 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
         onDeleteComment={handleDeleteComment}
         currentUserId={currentUserId}
         postId={openCommentsPostId}
+        postOwnerId={
+          openCommentsPostId
+            ? (posts.find((p) => p.id === openCommentsPostId)?.userId ||
+               posts.find((p) => p.id === openCommentsPostId)?.author?.uid)
+            : null
+        }
       />
 
       {/* Share Modal */}

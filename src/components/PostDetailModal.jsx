@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, X, MoreVertical, Trash2, Flag, Pin, Reply, ChevronDown, ChevronUp } from "lucide-react";
+import { Heart, X, MoreVertical, Trash2, Flag, Pin, Reply, ChevronDown, ChevronUp, Bookmark } from "lucide-react";
 import ShareModal from "./ShareModal";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import ReportModal from "./ReportModal";
@@ -10,13 +10,15 @@ import LiveProfilePhoto from "./LiveProfilePhoto";
 import { getProfileVideoUrl } from "../utils/profileVideos";
 import { postService } from "../services/postService";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useAuth } from "../context/AuthContext";
 import { toast } from "react-hot-toast";
 
-export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfile, currentUserId, onPostDeleted }) {
+export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfile, currentUserId, onPostDeleted, onBookmarkChange }) {
   const [liked, setLiked] = useState(post?.isLiked || post?.liked || false);
   const [likes, setLikes] = useState(post?.likesCount || post?.likes || 0);
   const [commentsCount, setCommentsCount] = useState(post?.commentsCount ?? 0);
   const [sharesCount, setSharesCount] = useState(post?.sharesCount || 0);
+  const [isSaved, setIsSaved] = useState(post?.isSaved || false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [newComment, setNewComment] = useState("");
   const commentsEndRef = useRef(null);
@@ -36,7 +38,9 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
   const [repliesMap, setRepliesMap] = useState({});
   
   // Get current logged-in user data (for new comment display)
-  const { profilePhoto: currentUserPhoto, profileVideo: currentUserVideo, username: currentUsername } = useUserProfile();
+  const { profilePhoto: currentUserPhoto, profileVideo: currentUserVideo, username: profileUsername } = useUserProfile();
+  const { user: authUser } = useAuth();
+  const currentUsername = authUser?.username || profileUsername;
   // Backend sends userId on post; getPost also sends author.uid, feed/userPosts send author or only userId
   const postOwnerId = post?.userId || post?.user?.uid || post?.author?.uid;
   const isOwnPost = currentUserId && postOwnerId && postOwnerId === currentUserId;
@@ -79,6 +83,7 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
           setLikes(fresh.likesCount ?? fresh.likes ?? 0);
           if (fresh.commentsCount != null) setCommentsCount(fresh.commentsCount);
           if (fresh.sharesCount != null) setSharesCount(fresh.sharesCount);
+          if (fresh.isSaved != null) setIsSaved(fresh.isSaved);
         }
       } catch (err) {
         // Ignore — keep prop values as fallback
@@ -92,6 +97,7 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
       setLikes(post?.likesCount || post?.likes || 0);
       setCommentsCount(post?.commentsCount ?? 0);
       setSharesCount(post?.sharesCount || 0);
+      setIsSaved(post?.isSaved || false);
       // Fetch fresh data from backend
       loadComments();
       verifyPostState();
@@ -242,6 +248,26 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
 
   const handleShareClick = () => {
     setIsShareModalOpen(true);
+  };
+
+  const handleBookmark = async () => {
+    if (!postId) return;
+
+    const previousSaved = isSaved;
+    setIsSaved(!isSaved);
+
+    try {
+      if (previousSaved) {
+        await postService.unbookmarkPost(String(postId));
+      } else {
+        await postService.bookmarkPost(String(postId));
+      }
+      onBookmarkChange?.(String(postId), !previousSaved);
+    } catch (error) {
+      console.error("Error toggling bookmark:", error);
+      toast.error("Failed to update bookmark");
+      setIsSaved(previousSaved);
+    }
   };
 
   const handlePinComment = async (commentId) => {
@@ -454,6 +480,13 @@ export default function PostDetailModal({ isOpen, onClose, post, onViewUserProfi
                       src={messageIcon}
                       alt="share"
                       className="h-6 w-6 cursor-pointer hover:scale-110 transition-transform duration-200 invert dark:invert-0"
+                    />
+                  </button>
+                  <button onClick={handleBookmark} className="focus:outline-none ml-auto" aria-label={isSaved ? "Remove bookmark" : "Bookmark post"}>
+                    <Bookmark
+                      className={`h-6 w-6 cursor-pointer hover:scale-110 transition-all duration-200 ${
+                        isSaved ? "fill-primary text-primary" : "text-black dark:text-white"
+                      }`}
                     />
                   </button>
                 </div>

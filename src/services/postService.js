@@ -179,6 +179,16 @@ export const postService = {
     }
   },
 
+  async getBookmarkedPosts(limit = 20, skip = 0) {
+    try {
+      const response = await api.get(API_ENDPOINTS.POSTS.BOOKMARKS, { limit, skip });
+      return response.success ? response.data : { posts: [], pagination: {} };
+    } catch (error) {
+      console.error('Get bookmarked posts error:', error);
+      throw error;
+    }
+  },
+
   /**
    * Like comment
    */

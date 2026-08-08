@@ -115,7 +115,7 @@ export default function HomePage({ onViewUserProfile }) {
         ...(parentId ? { parentId } : {}),
       });
 
-      const newComment = response.comment || response.data || response;
+      const newComment = response?.comment || response?.data?.comment || response;
 
       // Only add to top-level list if it's not a reply to another comment
       if (!parentId) {
@@ -219,6 +219,11 @@ export default function HomePage({ onViewUserProfile }) {
     setSelectedPost(null);
   };
 
+  const activePost = activePostId
+    ? posts.find((p) => String(p.id || p._id) === String(activePostId))
+    : null;
+  const activePostOwnerId = activePost?.userId || activePost?.author?.uid;
+
   return (
     <main className="flex-1 overflow-y-auto h-[calc(100vh-7.5rem)] md:h-[calc(100vh-4rem)] bg-white dark:bg-black">
       <div className="p-4 md:p-8">
@@ -305,6 +310,7 @@ export default function HomePage({ onViewUserProfile }) {
               onDeleteComment={handleDeleteComment}
               currentUserId={currentUserId}
             postId={activePostId}
+            postOwnerId={activePostOwnerId}
             commentsDisabled={activePostId ? !!posts.find(p => String(p.id || p._id) === String(activePostId))?.turnOffCommenting : false}
             />
           </div>
@@ -321,6 +327,7 @@ export default function HomePage({ onViewUserProfile }) {
               onDeleteComment={handleDeleteComment}
               currentUserId={currentUserId}
             postId={activePostId}
+            postOwnerId={activePostOwnerId}
             commentsDisabled={activePostId ? !!posts.find(p => String(p.id || p._id) === String(activePostId))?.turnOffCommenting : false}
             />
           </div>
