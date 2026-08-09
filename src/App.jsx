@@ -33,6 +33,7 @@ import AddStory from "./components/AddStory";
 import TermsPage from "./pages/legal/TermsPage";
 import PrivacyPage from "./pages/legal/PrivacyPage";
 import SupportPage from "./pages/legal/SupportPage";
+import AgeSuitabilityPage from "./pages/legal/AgeSuitabilityPage";
 
 export default function App() {
   const { isAuthenticated, isLoading: authLoading, logout } = useAuth();
@@ -56,7 +57,8 @@ export default function App() {
   const isPublicLegalPage =
     location.pathname === "/privacy" ||
     location.pathname === "/terms" ||
-    location.pathname === "/support";
+    location.pathname === "/support" ||
+    location.pathname === "/age-suitability";
 
   if (authLoading && !isPublicLegalPage) {
     return (
@@ -232,6 +234,7 @@ export default function App() {
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/support" element={<SupportPage />} />
+      <Route path="/age-suitability" element={<AgeSuitabilityPage />} />
       
       {/* Frontend-only path for Google sign-in to avoid exposing backend URL in client */}
       <Route path="/auth/signin-google" element={<SignInGoogleRedirect />} />

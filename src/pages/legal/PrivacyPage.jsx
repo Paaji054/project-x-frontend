@@ -127,6 +127,9 @@ export default function PrivacyPage() {
           <Link to="/support" className="text-gray-400 hover:text-white text-sm">
             Support
           </Link>
+          <Link to="/age-suitability" className="text-gray-400 hover:text-white text-sm">
+            Age Suitability
+          </Link>
         </div>
 
         <p className="text-orange-500/90 text-sm font-semibold tracking-wide mb-2">
