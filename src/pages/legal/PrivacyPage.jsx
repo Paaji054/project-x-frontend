@@ -99,8 +99,9 @@ const sections = [
   {
     title: "12. Contact Us",
     body: [
-      "If you have questions about this Privacy Policy or your data, contact Spazor Labs at:",
-      "Email: privacy@spazorlabs.com",
+      "If you have questions about this Privacy Policy or your data, contact us at:",
+      "Email: theradianapp@gmail.com",
+      "Support page: https://theradianapp.com/support",
       "Product: Radian (Project X)",
     ],
   },
@@ -122,6 +123,9 @@ export default function PrivacyPage() {
           </Link>
           <Link to="/login" className="text-gray-400 hover:text-white text-sm">
             Login
+          </Link>
+          <Link to="/support" className="text-gray-400 hover:text-white text-sm">
+            Support
           </Link>
         </div>
 

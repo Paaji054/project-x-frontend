@@ -4,7 +4,8 @@ import { Link } from "react-router-dom";
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-[#0f0f0f] text-gray-200 p-6 md:p-12 max-w-3xl mx-auto">
-      <Link to="/register" className="text-orange-500 hover:underline mb-6 inline-block">← Back to Sign up</Link>
+      <Link to="/register" className="text-orange-500 hover:underline mb-6 inline-block mr-4">← Back to Sign up</Link>
+      <Link to="/support" className="text-gray-400 hover:text-white text-sm mb-6 inline-block">Support</Link>
       <h1 className="text-2xl md:text-3xl font-bold text-white mb-6">Terms of Service</h1>
       <p className="text-sm text-gray-400 mb-4">Last updated: March 2025</p>
       <div className="space-y-4 text-gray-300">

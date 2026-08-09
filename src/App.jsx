@@ -32,6 +32,7 @@ import AITools from "./components/AITools";
 import AddStory from "./components/AddStory";
 import TermsPage from "./pages/legal/TermsPage";
 import PrivacyPage from "./pages/legal/PrivacyPage";
+import SupportPage from "./pages/legal/SupportPage";
 
 export default function App() {
   const { isAuthenticated, isLoading: authLoading, logout } = useAuth();
@@ -51,10 +52,11 @@ export default function App() {
     navigate("/login");
   };
 
-  // Show loading state while checking authentication.
-  // Legal pages stay public and must not wait on auth (App Store /privacy URL).
+  // Legal / public pages stay available without waiting on auth.
   const isPublicLegalPage =
-    location.pathname === "/privacy" || location.pathname === "/terms";
+    location.pathname === "/privacy" ||
+    location.pathname === "/terms" ||
+    location.pathname === "/support";
 
   if (authLoading && !isPublicLegalPage) {
     return (
@@ -229,6 +231,7 @@ export default function App() {
       <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/support" element={<SupportPage />} />
       
       {/* Frontend-only path for Google sign-in to avoid exposing backend URL in client */}
       <Route path="/auth/signin-google" element={<SignInGoogleRedirect />} />
