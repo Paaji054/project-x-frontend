@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Settings, Upload, X, Plus, Trash2, Eye, EyeOff, Globe, Lock, Eye as EyeIcon, RefreshCw } from "lucide-react";
+import { ArrowLeft, Settings, Upload, X, Plus, Trash2, Eye, EyeOff, Globe, Lock, RefreshCw } from "lucide-react";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useAuth } from "../context/AuthContext";
 import { communityService } from "../services/communityService";
@@ -10,7 +10,7 @@ import LiveProfilePhoto from "./LiveProfilePhoto";
 
 export default function CommunitySettings({ communityId, communitySlug, initialCommunity, setActiveView }) {
   const navigate = useNavigate();
-  const { username, profile } = useUserProfile();
+  const { profile } = useUserProfile();
   const { user: authUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -31,7 +31,7 @@ export default function CommunitySettings({ communityId, communitySlug, initialC
     showNewPassword: false,
     showConfirmPassword: false,
     communityCode: "",
-    communityType: "Public",
+    communityType: "public",
     hasPassword: false,
   });
 
@@ -66,7 +66,7 @@ export default function CommunitySettings({ communityId, communitySlug, initialC
           showNewPassword: false,
           showConfirmPassword: false,
           communityCode: initialCommunity.code || initialCommunity.id?.toString() || initialCommunity._id?.toString() || "",
-          communityType: initialCommunity.type || "Public",
+          communityType: String(initialCommunity.type || "public").toLowerCase(),
           hasPassword: initialCommunity.hasPassword || !!initialCommunity.password,
         });
         setModerators(initialCommunity.moderators || []);
@@ -96,7 +96,7 @@ export default function CommunitySettings({ communityId, communitySlug, initialC
           showNewPassword: false,
           showConfirmPassword: false,
           communityCode: data.code || data.id?.toString() || data._id?.toString() || "",
-          communityType: data.type || "Public",
+          communityType: String(data.type || "public").toLowerCase(),
           hasPassword: data.hasPassword || !!data.password,
         });
         setModerators(data.moderators || []);
@@ -371,15 +371,17 @@ export default function CommunitySettings({ communityId, communitySlug, initialC
         icon: profilePreview,
         avatar: profilePreview,
         profileVideo: profileVideoPreview,
-        type: formData.communityType,
+        type: String(formData.communityType || "public").toLowerCase() === "private"
+          ? "private"
+          : "public",
       };
 
-      // Add password if changing (only for private communities)
-      if (formData.communityType === "Private" && formData.newPassword) {
+      const isPrivateType =
+        String(formData.communityType || "").toLowerCase() === "private";
+      if (isPrivateType && formData.newPassword) {
         updateData.password = formData.newPassword;
         updateData.hasPassword = true;
-      } else if (formData.communityType !== "Private") {
-        // Clear password if switching away from private
+      } else if (!isPrivateType) {
         updateData.password = null;
         updateData.hasPassword = false;
       }
@@ -628,8 +630,8 @@ export default function CommunitySettings({ communityId, communitySlug, initialC
             <div className="space-y-2 sm:space-y-3">
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, communityType: "Public" })}
-                className={`w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 rounded-lg border-2 transition ${formData.communityType === "Public"
+                onClick={() => setFormData({ ...formData, communityType: "public" })}
+                className={`w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 rounded-lg border-2 transition ${String(formData.communityType).toLowerCase() === "public"
                     ? "bg-primary/20 border-primary text-black dark:text-white"
                     : "bg-gray-100 dark:bg-gray-900 border-black dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-600"
                   }`}
@@ -641,34 +643,21 @@ export default function CommunitySettings({ communityId, communitySlug, initialC
 
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, communityType: "Restricted" })}
-                className={`w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 rounded-lg border-2 transition ${formData.communityType === "Restricted"
-                    ? "bg-primary/20 border-primary text-black dark:text-white"
-                    : "bg-gray-100 dark:bg-gray-900 border-black dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-600"
-                  }`}
-              >
-                <EyeIcon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                <span className="font-medium text-sm sm:text-base">Restricted</span>
-                <span className="ml-auto text-xs text-gray-500 hidden sm:inline">Only moderators can add members</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, communityType: "Private" })}
-                className={`w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 rounded-lg border-2 transition ${formData.communityType === "Private"
+                onClick={() => setFormData({ ...formData, communityType: "private" })}
+                className={`w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 rounded-lg border-2 transition ${String(formData.communityType).toLowerCase() === "private"
                     ? "bg-primary/20 border-primary text-black dark:text-white"
                     : "bg-gray-100 dark:bg-gray-900 border-black dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-600"
                   }`}
               >
                 <Lock className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
                 <span className="font-medium text-sm sm:text-base">Private</span>
-                <span className="ml-auto text-xs text-gray-500 hidden sm:inline">Requires password to join</span>
+                <span className="ml-auto text-xs text-gray-500 hidden sm:inline">Invite code required to join</span>
               </button>
             </div>
           </div>
 
           {/* Password (Private Communities Only) */}
-          {formData.communityType === "Private" && (
+          {String(formData.communityType).toLowerCase() === "private" && (
             <div className="bg-white dark:bg-[#121212] border border-black dark:border-gray-800 rounded-xl p-4 sm:p-5 md:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-3">
                 <label className="block text-xs sm:text-sm font-medium text-black dark:text-white">

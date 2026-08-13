@@ -65,11 +65,10 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
     const handleNewMessage = (payload) => {
       const { message: msg, chatId } = payload || {};
       if (!msg || String(chatId) !== String(activeChatRef.current?._id)) return;
-      const uid = activeChatRef.current && (activeChatRef.current.otherUser?.uid || activeChatRef.current.otherUser?._id || activeChatRef.current.otherUser?.id);
       const currentUid = currentUserId;
       const newMsg = {
         id: msg._id || msg.id,
-        text: msg.text || msg.mediaUrl || '',
+        text: msg.text || msg.content || msg.mediaUrl || '',
         sender: msg.senderId === currentUid ? 'sender' : 'receiver',
         time: new Date(msg.createdAt || Date.now()).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
         createdAt: msg.createdAt || new Date().toISOString(),
@@ -82,17 +81,29 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
       };
       setMessages((prev) => {
         if (prev.some((m) => String(m.id) === String(newMsg.id))) return prev;
-        const next = [...prev, newMsg].sort(
-          (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+        // Replace optimistic temp bubble instead of appending a duplicate
+        const tempIdx = prev.findIndex(
+          (m) =>
+            m.sender === 'sender' &&
+            m.text === newMsg.text &&
+            (typeof m.id === 'number' || String(m.id).startsWith('temp'))
         );
-        return next;
+        let next;
+        if (newMsg.sender === 'sender' && tempIdx !== -1) {
+          next = prev.map((m, i) => (i === tempIdx ? { ...m, ...newMsg } : m));
+        } else {
+          next = [...prev, newMsg];
+        }
+        return next.sort(
+          (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
+        );
       });
     };
 
     socketService.onNewMessage(handleNewMessage);
     // Listen for delivery receipts to update UI (mark messages as delivered)
     const handleDelivered = (payload) => {
-      const { messageId, chatId, deliveredTo } = payload || {};
+      const { messageId, chatId } = payload || {};
       if (!messageId || String(chatId) !== String(activeChatRef.current?._id)) return;
       setMessages((prev) => prev.map((m) => {
         if (!m) return m;
@@ -502,10 +513,11 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
 
     // Optimistically add message to UI
     const tempMessage = {
-      id: Date.now(),
+      id: `temp-${Date.now()}`,
       text: messageText,
       sender: 'sender',
       time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      createdAt: new Date().toISOString(),
       status: 'sent',
       isDelivered: false,
       isRead: false,
@@ -874,7 +886,7 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
                 </div>
               ) : (
                 <>
-                  {messages.map((message, index) => {
+                  {messages.map((message) => {
                     // Find the last sender message to show read receipt only on it
                     const senderMessages = messages.filter(msg => msg.sender === 'sender');
                     const lastSenderMessage = senderMessages[senderMessages.length - 1];
@@ -945,12 +957,12 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
                   ) : (
                   <div className="relative group">
                     <div
-                          className={`max-w-[75%] md:max-w-[60%] rounded-2xl px-4 py-2 ${message.sender === 'sender'
+                          className={`w-fit max-w-[75%] md:max-w-[60%] min-w-0 rounded-2xl px-4 py-2 overflow-hidden ${message.sender === 'sender'
                             ? themes[currentTheme]?.senderBubble || themes.default.senderBubble
                             : themes[currentTheme]?.receiverBubble || themes.default.receiverBubble
                     }`}
                   >
-                    <p className="text-sm md:text-base">{message.isDeleted ? 'This message was deleted' : message.text}</p>
+                    <p className="text-sm md:text-base break-words whitespace-pre-wrap [overflow-wrap:anywhere]">{message.isDeleted ? 'This message was deleted' : message.text}</p>
                   </div>
                   {message.sender === 'sender' && !message.isDeleted && (message.type === 'text' || message.type === 'post_share') && (
                     <div className="absolute -left-2 top-1/2 -translate-y-1/2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">

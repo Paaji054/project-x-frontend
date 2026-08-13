@@ -44,7 +44,7 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [, setUploadingVideo] = useState(false);
   const [usernameError, setUsernameError] = useState("");
   const [usernameAvailable, setUsernameAvailable] = useState(null);
   const usernameCheckRef = useRef(null);
@@ -159,6 +159,33 @@ export default function ProfileSettings({ onBack, onProfileUpdate }) {
       setLinks(user.links || []);
     }
   }, [user]);
+
+  // Auth login payload used to omit bio — load the full profile so the field is not empty
+  useEffect(() => {
+    const username = user?.username;
+    if (!username) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await userService.getUserByUsername(username);
+        const profile = data?.user || data;
+        if (cancelled || !profile) return;
+        setFormData(prev => ({
+          ...prev,
+          bio: profile.bio ?? prev.bio,
+          displayName: profile.displayName ?? prev.displayName,
+          phone: profile.phone ?? prev.phone,
+          gender: profile.gender ?? prev.gender,
+          website: profile.website ?? prev.website,
+        }));
+        if (Array.isArray(profile.links)) setLinks(profile.links);
+        if (profile.accountType) setAccountType(profile.accountType);
+      } catch (err) {
+        console.error('Failed to load profile for settings', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.username]);
 
   const photoInputRef = useRef(null);
   const videoInputRef = useRef(null);

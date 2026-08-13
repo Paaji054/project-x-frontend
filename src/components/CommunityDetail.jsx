@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Globe, Pencil, Heart, X, Settings, Share2, Copy, Check, Trash2 } from "lucide-react";
 import ShareModal from "../components/ShareModal";
@@ -21,7 +21,7 @@ import DeleteConfirmationModal from "./DeleteConfirmationModal";
 
 export default function CommunityDetail({ communityId, onViewUserProfile }) {
   const navigate = useNavigate();
-  const { username, user } = useUserProfile();
+  const { user } = useUserProfile();
   const { user: authUser } = useAuth();
   const currentUserId = authUser?.uid || authUser?.id || user?.uid || user?.id;
   const [activeView, setActiveView] = useState("detail"); // "detail" or "settings"
@@ -57,6 +57,27 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
         const communityData = response?.community || response;
         setCommunity(communityData);
         setIsJoined(communityData?.isJoined || false);
+
+        const inviteCode = new URLSearchParams(window.location.search).get("code");
+        if (
+          inviteCode &&
+          !communityData?.isJoined &&
+          String(communityData?.type || "").toLowerCase() === "private"
+        ) {
+          try {
+            await communityService.joinCommunityByCode(inviteCode.trim().toUpperCase());
+            setIsJoined(true);
+            toast.success("Joined community!");
+          } catch (joinErr) {
+            setShowCodeModal(true);
+            setCodeInput(inviteCode.trim().toUpperCase());
+            setCodeError(
+              joinErr.response?.data?.error?.message ||
+                joinErr.response?.data?.message ||
+                "Invalid invite code."
+            );
+          }
+        }
 
         // Fetch community posts using actual MongoDB _id, not slug
         const actualCommunityId = communityData?._id || communityData?.id;
@@ -131,15 +152,17 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
     // If already joined, do nothing (leave is handled by a separate button)
     if (isJoined) return;
 
+    const communityType = String(community.type || "public").toLowerCase();
+
     // Restricted communities cannot be joined from outside
-    if (community.type === "Restricted") {
+    if (communityType === "restricted") {
       setError("This community is restricted. Only moderators can add members.");
       setTimeout(() => setError(""), 5000);
       return;
     }
 
     // For public communities, join directly without code
-    if (community.type === "public" || community.type === "Public" || !community.type) {
+    if (communityType !== "private") {
       try {
         await communityService.joinCommunity(community.id || community._id);
         setIsJoined(true);
@@ -169,31 +192,26 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
   };
 
   const handleCodeSubmit = async () => {
-    const communityCode = community.code || community.id?.toString() || "";
-    
-    if (codeInput.trim() !== communityCode) {
-      setCodeError("Invalid community code. Please try again.");
+    const entered = codeInput.trim().toUpperCase();
+    if (!entered) {
+      setCodeError("Please enter the community invite code.");
       return;
     }
 
-    setCodeError("");
-    setShowCodeModal(false);
-    setCodeInput("");
-
-    // If private community, show password modal after code is correct
-    if (community.type === "Private") {
-      setShowPasswordModal(true);
-    } else {
-      // For public communities, join after code verification
-      try {
-        await communityService.joinCommunity(community.id || community._id);
-        setIsJoined(true);
-        toast.success("Joined community!");
-      } catch (err) {
-        console.error("Error joining community:", err);
-        toast.error("Failed to join community. Please try again.");
-        setError("Failed to join community. Please try again.");
-      }
+    try {
+      setCodeError("");
+      await communityService.joinCommunityByCode(entered);
+      setShowCodeModal(false);
+      setCodeInput("");
+      setIsJoined(true);
+      toast.success("Joined community!");
+    } catch (err) {
+      console.error("Error joining community:", err);
+      setCodeError(
+        err.response?.data?.error?.message ||
+          err.response?.data?.message ||
+          "Invalid community code. Please try again."
+      );
     }
   };
 
@@ -396,7 +414,7 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
     setIsCreatePostOpen(true);
   };
 
-  const handlePostCreated = async (postData) => {
+  const handlePostCreated = async () => {
     try {
       // Post was already created by CreatePost component, just refresh the posts list
       setIsCreatePostOpen(false);
@@ -450,7 +468,7 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
         <div className="w-full h-48 sm:h-64 md:h-80 overflow-hidden relative">
           <LiveBanner
             imageSrc={community.banner}
-            videoSrc={getCommunityBannerVideoUrl(community.id, community.banner, community)}
+            videoSrc={getCommunityBannerVideoUrl(community._id || community.id, community.banner, community)}
             alt={`${community.name} banner`}
             className="w-full h-full"
             maxDuration={10}
@@ -467,7 +485,7 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
                 <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-28 md:h-28 rounded-full border-2 border-white overflow-hidden shadow-xl bg-white">
                   <LiveProfilePhoto
                     imageSrc={community.icon}
-                    videoSrc={getCommunityProfileVideoUrl(community.id, community.icon, community)}
+                    videoSrc={getCommunityProfileVideoUrl(community._id || community.id, community.icon, community)}
                     alt={`${community.name} icon`}
                     className="w-full h-full rounded-full"
                     maxDuration={10}
@@ -595,20 +613,22 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
               </div>
 
               {/* Community Code */}
+              {(isJoined || canManageSettings) && (
               <div>
-                <h3 className="text-black dark:text-white font-semibold mb-2">Community Code</h3>
+                <h3 className="text-black dark:text-white font-semibold mb-2">Invite people</h3>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                  Share this code with others to invite them to join this community
+                  Share the link{community.code ? " or invite code" : ""} so others can join this community
                 </p>
+                {community.code && (
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3">
                   <div className="flex-1 px-3 sm:px-4 py-2 bg-gray-100 dark:bg-gray-900 border border-black dark:border-gray-700 rounded-lg min-w-0">
                     <p className="text-xs sm:text-sm font-mono text-black dark:text-white break-all">
-                      {community.code || community.id?.toString() || "N/A"}
+                      {community.code}
                     </p>
                   </div>
                   <button
                     onClick={() => {
-                      const code = community.code || community.id?.toString() || "";
+                      const code = community.code || "";
                       navigator.clipboard.writeText(code);
                       setCopiedCode(true);
                       setTimeout(() => setCopiedCode(false), 2000);
@@ -628,10 +648,17 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
                     )}
                   </button>
                 </div>
+                )}
                 <button
                   onClick={() => {
                     const id = community._id || community.id;
-                    const communityLink = `${window.location.origin}/communities/${id}`;
+                    const isPrivate =
+                      String(community.type || "").toLowerCase() === "private";
+                    const code = community.code ? String(community.code).toUpperCase() : "";
+                    const communityLink =
+                      isPrivate && code
+                        ? `${window.location.origin}/communities/${id}?code=${encodeURIComponent(code)}`
+                        : `${window.location.origin}/communities/${id}`;
                     navigator.clipboard.writeText(communityLink).then(() => {
                       setCopiedLink(true);
                       setTimeout(() => setCopiedLink(false), 2000);
@@ -655,6 +682,7 @@ export default function CommunityDetail({ communityId, onViewUserProfile }) {
                   )}
                 </button>
               </div>
+              )}
             </div>
 
             {/* Search By Topic */}

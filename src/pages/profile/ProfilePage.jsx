@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 import { LogOut, Settings } from "lucide-react";
-import profilePhotoDefault from "../../assets/profile-photo.jpg";
 import PostDetailModal from "../../components/PostDetailModal";
 import LogoutConfirmationModal from "../../components/LogoutConfirmationModal";
 import ProfileSettings from "../../components/ProfileSettings";
@@ -9,7 +8,6 @@ import FollowersFollowingModal from "../../components/FollowersFollowingModal";
 import LiveProfilePhoto from "../../components/LiveProfilePhoto";
 import StoryViewer from "../../components/StoryViewer";
 import { useUserProfile } from "../../hooks/useUserProfile";
-import { getProfileVideoUrl } from "../../utils/profileVideos";
 import { useAuth } from "../../context/AuthContext";
 import { userService, postService } from "../../services";
 import { storyService } from "../../services/storyService";
@@ -107,12 +105,14 @@ const fetchProfileData = async () => {
       throw new Error('Username not available');
     }
 
-    // Fetch user profile data - getUserByUsername returns user object directly
-    const userData = await userService.getUserByUsername(actualUsername);
+    // Fetch user profile data - unwrap { user } envelopes
+    const userDataRaw = await userService.getUserByUsername(actualUsername);
     
-    if (!userData) {
+    if (!userDataRaw) {
       throw new Error('Failed to load profile data');
     }
+
+    const userData = userDataRaw.user || userDataRaw;
     
     // Ensure all required fields have default values
     const safeUserData = {
@@ -345,7 +345,7 @@ const fetchProfileData = async () => {
         {/* Profile Info Section */}
         <div className="flex flex-col items-center gap-6 mb-8">
           {/* Profile Picture with optional Story Ring */}
-          <motion.div
+          <Motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5 }}
@@ -360,55 +360,55 @@ const fetchProfileData = async () => {
                 className="w-full h-full rounded-full"
               />
             </div>
-          </motion.div>
+          </Motion.div>
 
           {/* Profile Details */}
           <div className="flex flex-col items-center text-center w-full">
             {/* Username */}
-            <motion.h2
+            <Motion.h2
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.1, duration: 0.5 }}
               className="text-xl md:text-2xl font-semibold text-black dark:text-white mb-2"
             >
               {username}
-            </motion.h2>
+            </Motion.h2>
 
             {/* Full Name */}
-            <motion.p
+            <Motion.p
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.15, duration: 0.5 }}
               className="text-gray-600 dark:text-gray-300 mb-3"
             >
               {profileData?.displayName || user?.displayName || username}
-            </motion.p>
+            </Motion.p>
 
             {/* Bio */}
-            <motion.p
+            <Motion.p
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.5 }}
               className="text-black dark:text-white mb-3 text-sm md:text-base"
             >
               {profileData?.bio || profile?.bio || "No bio yet"}
-            </motion.p>
+            </Motion.p>
 
             {/* Gender */}
             {(profileData?.gender || profile?.gender) && (
-              <motion.p
+              <Motion.p
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.22, duration: 0.5 }}
                 className="text-gray-600 dark:text-gray-400 mb-3 text-xs md:text-sm"
               >
                 {profileData?.gender || profile?.gender}
-              </motion.p>
+              </Motion.p>
             )}
 
             {/* Website & Links */}
             {((profileData?.website || profile?.website) || ((profileData?.links || profile?.links)?.length > 0)) && (
-              <motion.div
+              <Motion.div
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.23, duration: 0.5 }}
@@ -416,12 +416,12 @@ const fetchProfileData = async () => {
               >
                 {(profileData?.website || profile?.website) && (
                   <a
-                    href={(profileData?.website || profile?.website).startsWith('http') ? (profileData?.website || profile?.website) : `https://${profileData?.website || profile?.website}`}
+                    href={(profileData?.website || profile?.website || '').startsWith('http') ? (profileData?.website || profile?.website) : `https://${profileData?.website || profile?.website || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs md:text-sm text-primary hover:underline break-all"
                   >
-                    {(profileData?.website || profile?.website).replace(/^https?:\/\//, '')}
+                    {(profileData?.website || profile?.website || '').replace(/^https?:\/\//, '')}
                   </a>
                 )}
                 {(profileData?.links || profile?.links || []).filter(l => l).map((link, i) => (
@@ -435,11 +435,11 @@ const fetchProfileData = async () => {
                     {link.replace(/^https?:\/\//, '')}
                   </a>
                 ))}
-              </motion.div>
+              </Motion.div>
             )}
 
             {/* Stats */}
-            <motion.div
+            <Motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.25, duration: 0.5 }}
@@ -469,12 +469,12 @@ const fetchProfileData = async () => {
                 <p className="font-bold text-black dark:text-white">{followingCount}</p>
                 <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm">Following</p>
               </button>
-            </motion.div>
+            </Motion.div>
           </div>
         </div>
 
         {/* Posts Grid */}
-        <motion.div
+        <Motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
@@ -486,7 +486,7 @@ const fetchProfileData = async () => {
             </div>
           ) : (
             posts.map((post, index) => (
-  <motion.div
+  <Motion.div
     key={`${post.id || post._id}-${index}`}
     initial={{ scale: 0.9, opacity: 0 }}
     animate={{ scale: 1, opacity: 1 }}
@@ -501,10 +501,10 @@ const fetchProfileData = async () => {
       loading="lazy"
       decoding="async"
     />
-  </motion.div>
+  </Motion.div>
 ))
           )}
-        </motion.div>
+        </Motion.div>
       </div>
 
       {/* Post Detail Modal */}

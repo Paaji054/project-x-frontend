@@ -125,25 +125,13 @@ export default function DiscoverCommunities({ onBack }) {
         return;
       }
 
-      // Original code verification logic for communities from the list
-      const communityCode = selectedCommunity.code || selectedCommunity.id?.toString() || "";
-      
-      if (codeInput.trim().toUpperCase() !== communityCode.toUpperCase()) {
-        setCodeError("Invalid community code. Please try again.");
-        return;
-      }
-
+      await communityService.joinCommunityByCode(codeInput.trim().toUpperCase());
       setCodeError("");
       setShowCodeModal(false);
       setCodeInput("");
-
-      // If private community, show password modal after code is correct
-      if (selectedCommunity.type === "Private") {
-        setShowPasswordModal(true);
-      } else {
-        // For public communities, join after code verification
-        await joinCommunityAfterVerification();
-      }
+      setSelectedCommunity(null);
+      toast.success("Successfully joined the community!");
+      await fetchCommunities();
     } catch (err) {
       console.error('Error joining by code:', err);
       setCodeError(err.response?.data?.message || "Failed to join community. Please check the code and try again.");
@@ -175,15 +163,19 @@ export default function DiscoverCommunities({ onBack }) {
 
   const joinCommunityAfterVerification = async () => {
     if (!selectedCommunity) return;
-    const communityId = selectedCommunity.id;
+    const communityId = selectedCommunity._id || selectedCommunity.id;
+    const enteredCode = (codeInput || selectedCommunity.code || "").trim().toUpperCase();
 
     try {
       setJoiningIds(prev => new Set(prev).add(communityId));
-      await communityService.joinCommunity(communityId);
+      if (enteredCode) {
+        await communityService.joinCommunityByCode(enteredCode);
+      } else {
+        await communityService.joinCommunity(communityId);
+      }
       
-      // Optimistic update - remove from lists after joining
-      setRecommendedCommunities(prev => prev.filter(c => c.id !== communityId));
-      setCategoryCommunities(prev => prev.filter(c => c.id !== communityId));
+      setRecommendedCommunities(prev => prev.filter(c => (c._id || c.id) !== communityId));
+      setCategoryCommunities(prev => prev.filter(c => (c._id || c.id) !== communityId));
     } catch (err) {
       console.error('Error joining community:', err);
       setError("Failed to join community. Please try again.");
@@ -199,7 +191,6 @@ export default function DiscoverCommunities({ onBack }) {
   };
 
   const CommunityCard = ({ community, onJoin, isJoining }) => {
-    const communityId = community._id || community.id;
     return (
     <div className="bg-white dark:bg-[#0f0f0f] border border-black dark:border-gray-800 rounded-2xl p-4 hover:border-primary transition-all duration-300">
       <div className="flex items-start gap-3">
@@ -360,7 +351,7 @@ export default function DiscoverCommunities({ onBack }) {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {categoryCommunities.map((community) => (
                 <CommunityCard
-                  key={community.id}
+                  key={community._id || community.id}
                   community={community}
                   onJoin={handleJoinCommunity}
                   isJoining={joiningIds.has(community._id || community.id)}

@@ -1,14 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 
 /**
- * LiveBanner Component
- * Shows a static image by default, plays a video on hover (up to 10 seconds)
- * 
- * @param {string} imageSrc - Static image source (required)
- * @param {string} videoSrc - Video source (optional, falls back to static image if not provided)
- * @param {string} alt - Alt text for the image
- * @param {string} className - Additional CSS classes
- * @param {number} maxDuration - Maximum video duration in seconds (default: 10)
+ * LiveBanner — plays uploaded community banner video automatically (muted, looping).
+ * Falls back to the static image if there is no video or it fails to load.
  */
 export default function LiveBanner({
   imageSrc,
@@ -17,119 +11,67 @@ export default function LiveBanner({
   className = "",
   maxDuration = 10
 }) {
-  const [isHovered, setIsHovered] = useState(false);
   const [hasError, setHasError] = useState(false);
   const videoRef = useRef(null);
   const timeoutRef = useRef(null);
 
-  // Reset video on hover state change
+  const canPlay = Boolean(videoSrc) && !hasError;
+
   useEffect(() => {
-    if (isHovered && videoRef.current && videoSrc && !hasError) {
-      // Play video on hover
-      const video = videoRef.current;
-      video.currentTime = 0;
+    const video = videoRef.current;
+    if (!canPlay || !video) return undefined;
 
-      // Try to play the video
-      const playPromise = video.play();
-
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            // Set timeout to stop video after maxDuration seconds
-            timeoutRef.current = setTimeout(() => {
-              if (videoRef.current) {
-                videoRef.current.pause();
-                videoRef.current.currentTime = 0;
-              }
-              setIsHovered(false);
-            }, maxDuration * 1000);
-          })
-          .catch(() => {
-            // Auto-play was prevented or video failed to load
-            setHasError(true);
-            setIsHovered(false);
-          });
-      }
-    } else if (!isHovered && videoRef.current) {
-      // Reset video when not hovering
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      const video = videoRef.current;
-      video.pause();
+    const restart = () => {
       video.currentTime = 0;
+      video.play().catch(() => setHasError(true));
+    };
+
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          timeoutRef.current = setInterval(restart, maxDuration * 1000);
+        })
+        .catch(() => setHasError(true));
     }
 
     return () => {
       if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
+        clearInterval(timeoutRef.current);
+        timeoutRef.current = null;
       }
+      video.pause();
     };
-  }, [isHovered, videoSrc, hasError, maxDuration]);
+  }, [canPlay, videoSrc, maxDuration]);
 
-  const handleMouseEnter = () => {
-    if (videoSrc && !hasError) {
-      setIsHovered(true);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-  };
-
-  const handleVideoError = () => {
-    setHasError(true);
-    setIsHovered(false);
-  };
-
-  const handleVideoEnded = () => {
-    setIsHovered(false);
-  };
-
-  // If no video source or error occurred, just show static image
-  const showVideo = isHovered && videoSrc && !hasError;
-  
-  // Provide fallback for missing imageSrc
   const displayImage = imageSrc || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3C/svg%3E';
 
   return (
-    <div
-      className={`relative ${className}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {/* Static Image - Always visible as fallback */}
+    <div className={`relative ${className}`}>
       <img
         src={displayImage}
         alt={alt}
-        className={`w-full h-full object-cover transition-opacity duration-300 ${showVideo ? "opacity-0 absolute inset-0" : "opacity-100"
-          }`}
+        className={`w-full h-full object-cover transition-opacity duration-300 ${canPlay ? "opacity-0 absolute inset-0" : "opacity-100"}`}
         loading="lazy"
         decoding="async"
         onError={(e) => {
-          // Fallback to placeholder if image fails to load
           e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3C/svg%3E';
         }}
       />
 
-      {/* Video - Only shown on hover */}
-      {videoSrc && (
+      {canPlay && (
         <video
           ref={videoRef}
           src={videoSrc}
-          className={`w-full h-full object-cover transition-opacity duration-300 ${showVideo ? "opacity-100" : "opacity-0 absolute inset-0 pointer-events-none"
-            }`}
+          className="w-full h-full object-cover"
           muted
           playsInline
-          loop={false}
-          preload="metadata"
-          onError={handleVideoError}
-          onEnded={handleVideoEnded}
-          style={{ display: showVideo ? "block" : "none" }}
+          autoPlay
+          loop
+          preload="auto"
+          onError={() => setHasError(true)}
         />
       )}
     </div>
   );
 }
-
