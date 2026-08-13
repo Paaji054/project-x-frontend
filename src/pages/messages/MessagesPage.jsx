@@ -451,30 +451,32 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
     if (!selectedChatUsername) lastHandledUsernameRef.current = null;
   }, [selectedChatUsername]);
 
-  const createNewConversation = async (username) => {
+  const createNewConversation = async (username, knownUserId = null) => {
     try {
-      // First, fetch user ID by username
-      const userResponse = await userService.getUserByUsername(username);
-      if (!userResponse || !userResponse.user) {
-        toast.error("User not found");
-        return;
+      let userId = knownUserId;
+      if (!userId && username) {
+        // getUserByUsername already unwraps to the user object
+        const userResponse = await userService.getUserByUsername(username);
+        const user = userResponse?.user || userResponse;
+        if (!user) {
+          toast.error("User not found");
+          return;
+        }
+        userId = user.uid || user._id || user.id || username;
       }
-      const user = userResponse.user;
-      // Backend expects userId (uid), not username
-      const userId = user.uid || user._id || user.id;
       if (!userId) {
         toast.error("Unable to start conversation");
         return;
       }
       const newConvo = await messageService.createConversation(userId);
       if (newConvo) {
-        setConversations((prev) => [newConvo, ...prev]);
+        setConversations((prev) => [newConvo, ...prev.filter((c) => c._id !== newConvo._id)]);
         setActiveChat(newConvo);
         setMessages([]);
       }
     } catch (err) {
       console.error("Error creating conversation:", err);
-      toast.error("Failed to start conversation. Please try again.");
+      toast.error(err.message || "Failed to start conversation. Please try again.");
     }
   };
 
@@ -527,7 +529,16 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
     try {
       // Backend expects: conversationId, recipientId, text, mediaUrl
       // Note: otherUser.uid is the recipient's user ID (not _id)
-      const recipientId = activeChat.otherUser?.uid || activeChat.otherUser?._id || activeChat.otherUser?.id;
+      const recipientId =
+        activeChat.otherUser?.uid ||
+        activeChat.otherUser?._id ||
+        activeChat.otherUser?.id ||
+        (activeChat.participants || [])
+          .map((p) => (typeof p === 'object' ? (p.uid || p._id || p.id) : p))
+          .find((id) => id && id !== currentUserId);
+      if (!recipientId) {
+        throw new Error('Recipient not found');
+      }
       const sentMessage = await messageService.sendMessage(
         activeChat._id,
         recipientId,
@@ -588,19 +599,24 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
   };
 
   const handleStartChatWithContact = async (contact) => {
-    if (!contact?.username) return;
+    if (!contact?.username && !(contact?.uid || contact?._id || contact?.id)) return;
 
     // If a conversation already exists with this user, open it
     const existingConvo = conversations.find(
       (convo) =>
-        convo.otherUser?.username?.toLowerCase() ===
-        contact.username.toLowerCase()
+        (contact.username &&
+          convo.otherUser?.username?.toLowerCase() ===
+            contact.username.toLowerCase()) ||
+        (contact.uid && convo.otherUser?.uid === contact.uid)
     );
 
     if (existingConvo) {
       await handleChatClick(existingConvo);
     } else {
-      await createNewConversation(contact.username);
+      await createNewConversation(
+        contact.username,
+        contact.uid || contact._id || contact.id || null
+      );
     }
   };
 
@@ -1081,7 +1097,7 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
                     setShowCompose(false);
                     setComposeSearch("");
                     setComposeResults([]);
-                    await createNewConversation(u.username);
+                    await createNewConversation(u.username, u.uid || u._id || u.id || null);
                   }}
                   className="w-full flex items-center gap-3 px-5 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition text-left"
                 >
