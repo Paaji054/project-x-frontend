@@ -203,15 +203,20 @@ class HTTPClient {
     };
 
     try {
-      return await this.retryRequest(makeRequest);
+      const method = String(options.method || 'GET').toUpperCase();
+      // Never retry mutating requests — a 502 after a successful insert
+      // was creating duplicate stories/posts.
+      if (method === 'GET') {
+        return await this.retryRequest(makeRequest);
+      }
+      return await makeRequest();
     } catch (error) {
       // If 401 and we have a refresh token, try to refresh
       if (error.status === 401 && requiresAuth && tokenManager.getRefreshToken()) {
         // eslint-disable-next-line no-useless-catch
         try {
           await this.refreshAccessToken();
-          // Retry the original request with new token
-          return await this.retryRequest(makeRequest);
+          return await makeRequest();
         } catch (refreshError) {
           throw refreshError;
         }

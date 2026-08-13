@@ -120,7 +120,7 @@ export default function PostCard({
             <div className="h-9 w-9 rounded-full overflow-hidden flex-shrink-0">
               <LiveProfilePhoto
                 imageSrc={profileImage}
-                videoSrc={getProfileVideoUrl(profileImage, username)}
+                videoSrc={getProfileVideoUrl(author)}
                 alt="profile"
                 className="h-9 w-9 rounded-full"
               />
@@ -136,7 +136,7 @@ export default function PostCard({
           {/* Post media / text-only content */}
           {postImage ? (
             <div 
-              className="w-full aspect-[4/3] md:aspect-auto md:flex-1 dark:bg-black bg-gray-100 overflow-hidden flex items-center justify-center cursor-pointer"
+              className="w-full aspect-[4/3] dark:bg-black bg-gray-100 overflow-hidden flex items-center justify-center cursor-pointer"
               onClick={onClick}
             >
               <img
@@ -287,7 +287,7 @@ export default function PostCard({
             <div className="h-7 w-7 rounded-full overflow-hidden flex-shrink-0">
               <LiveProfilePhoto
                 imageSrc={profileImage}
-                videoSrc={getProfileVideoUrl(profileImage, username)}
+                videoSrc={getProfileVideoUrl(author)}
                 alt="profile"
                 className="h-7 w-7 rounded-full"
               />

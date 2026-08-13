@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
 import { Toaster } from "react-hot-toast";
 import { useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -36,11 +35,11 @@ import SupportPage from "./pages/legal/SupportPage";
 import AgeSuitabilityPage from "./pages/legal/AgeSuitabilityPage";
 
 export default function App() {
-  const { isAuthenticated, isLoading: authLoading, logout } = useAuth();
+  const { isLoading: authLoading, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
-  const [swipeDirection, setSwipeDirection] = useState(0);
+  const [, setSwipeDirection] = useState(0);
 
   // Swipe gesture detection for mobile
   const touchStartX = useRef(0);
@@ -122,10 +121,6 @@ export default function App() {
 
   const handleViewUserProfile = (username) => {
     navigate(`/user/${username}`);
-  };
-
-  const handleOpenMessage = (username) => {
-    navigate(`/messages?user=${username}`);
   };
 
   const isStoryPage = location.pathname === "/story/add";
@@ -252,7 +247,6 @@ export default function App() {
             handleCreatePostClick={handleCreatePostClick}
             isCreatePostOpen={isCreatePostOpen}
             setIsCreatePostOpen={setIsCreatePostOpen}
-            swipeDirection={swipeDirection}
             handleTouchStart={handleTouchStart}
             handleTouchEnd={handleTouchEnd}
           >
@@ -290,11 +284,9 @@ function AppLayout({
   handleCreatePostClick, 
   isCreatePostOpen, 
   setIsCreatePostOpen,
-  swipeDirection,
   handleTouchStart,
   handleTouchEnd
 }) {
-  const location = useLocation();
 
   return (
     <div 
@@ -310,32 +302,9 @@ function AppLayout({
             <Sidebar onLogout={handleLogout} />
 
             <div className="flex-1 md:ml-80 overflow-hidden bg-white dark:bg-black">
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={location.pathname}
-                  initial={{ 
-                    x: swipeDirection === 0 ? 0 : swipeDirection > 0 ? -50 : 50,
-                    opacity: 0 
-                  }}
-                  animate={{ 
-                    x: 0, 
-                    opacity: 1 
-                  }}
-                  exit={{ 
-                    x: swipeDirection === 0 ? 0 : swipeDirection > 0 ? 50 : -50,
-                    opacity: 0 
-                  }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 30,
-                    mass: 0.8
-                  }}
-                  className="h-full min-h-screen bg-white dark:bg-black"
-                >
-                  {children}
-                </motion.div>
-              </AnimatePresence>
+              <div className="h-full min-h-screen bg-white dark:bg-black">
+                {children}
+              </div>
             </div>
           </div>
 

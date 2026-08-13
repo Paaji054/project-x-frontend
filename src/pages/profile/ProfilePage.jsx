@@ -346,9 +346,8 @@ const fetchProfileData = async () => {
         <div className="flex flex-col items-center gap-6 mb-8">
           {/* Profile Picture with optional Story Ring */}
           <Motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
+            initial={false}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5 }}
             className={`relative rounded-full overflow-hidden border-2 border-black dark:border-gray-800 ${profileStories.length > 0 ? "p-[3px] rounded-full bg-gradient-to-tr from-primary-400 via-primary to-primary-700 cursor-pointer" : ""}`}
             onClick={profileStories.length > 0 ? () => setProfileStoryViewerIndex(0) : undefined}
           >

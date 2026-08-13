@@ -72,6 +72,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
   const [showTextModal, setShowTextModal] = useState(false);
   const [finalEditedImage, setFinalEditedImage] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const postingRef = useRef(false);
   const [uploadError, setUploadError] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState("");
@@ -583,7 +584,8 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
   };
 
   const handleQualitySelected = async (quality) => {
-    if (!pendingImageUpload) return;
+    if (!pendingImageUpload || postingRef.current) return;
+    postingRef.current = true;
 
     setShowQualityPicker(false);
     setIsUploading(true);
@@ -602,6 +604,7 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
       console.error("Error creating post:", error);
       setUploadError(error.message || "Failed to create post. Please try again.");
     } finally {
+      postingRef.current = false;
       setPendingImageUpload(null);
       setIsUploading(false);
       setUploadProgress(0);
@@ -610,6 +613,8 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
   };
 
   const handleShare = async () => {
+    if (postingRef.current || isUploading || pendingImageUpload) return;
+    postingRef.current = true;
     setUploadError(null);
 
     try {
@@ -755,6 +760,8 @@ export default function CreatePost({ setActiveView, isOpen, onClose, onPostCreat
     } catch (error) {
       console.error("Error preparing post:", error);
       setUploadError(error.message || "Failed to prepare post. Please try again.");
+    } finally {
+      postingRef.current = false;
     }
   };
 

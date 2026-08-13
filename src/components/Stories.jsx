@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { ChevronRight } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 import StoryViewer from "./StoryViewer";
 import LiveProfilePhoto from "./LiveProfilePhoto";
 import { useUserProfile } from "../hooks/useUserProfile";
@@ -135,19 +135,34 @@ export default function Stories({ onAddStory }) {
     }
   };
 
-  const handleStoryClick = (index, storyId) => {
+  const handleStoryClick = (story) => {
+    const uid = story.userId || story.author?.uid;
+    const storyId = story._id || story.id;
+    const idx = stories.findIndex((s) => {
+      const owner = s.userId || s.author?.uid;
+      return uid ? owner === uid : (s._id || s.id) === storyId;
+    });
     setViewedStoryIds((prev) =>
       prev.includes(storyId) ? prev : [...prev, storyId]
     );
-    setSelectedStoryIndex(index);
+    setSelectedStoryIndex(idx >= 0 ? idx : 0);
   };
+
+  const storyRings = [];
+  const seenOwners = new Set();
+  visibleStories.forEach((story) => {
+    const ownerId = story.userId || story.author?.uid || story._id || story.id;
+    if (seenOwners.has(ownerId)) return;
+    seenOwners.add(ownerId);
+    storyRings.push(story);
+  });
 
   return (
     <div className="w-full max-w-7xl mx-auto">
       <div className="relative bg-white dark:bg-black border border-black dark:border-gray-800 hover:border-primary transition-colors duration-300 rounded-xl py-3 md:py-4 px-3 sm:px-4 md:px-6">
         {/* Left Arrow - Show when scrolled */}
         {showLeftArrow && (
-          <motion.button
+          <Motion.button
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
@@ -156,7 +171,7 @@ export default function Stories({ onAddStory }) {
             aria-label="Scroll left"
           >
             <ChevronRight className="w-4 h-4 md:w-5 md:h-5 dark:text-white text-black rotate-180" />
-          </motion.button>
+          </Motion.button>
         )}
 
         {/* Stories Container */}
@@ -169,7 +184,7 @@ export default function Stories({ onAddStory }) {
           }}
         >
           {/* Add Story / View Own Story - Instagram Style */}
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3 }}
@@ -210,7 +225,7 @@ export default function Stories({ onAddStory }) {
               </div>
             </div>
             <span className="text-xs dark:text-gray-400 text-gray-600 whitespace-nowrap">Your Story</span>
-          </motion.div>
+          </Motion.div>
 
           {/* Story Items */}
           {loading && (
@@ -218,29 +233,26 @@ export default function Stories({ onAddStory }) {
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
             </div>
           )}
-          {!loading && visibleStories.map((story, index) => {
-            const isLastStory = index === visibleStories.length - 1;
+          {!loading && storyRings.map((story, index) => {
+            const isLastStory = index === storyRings.length - 1;
             const shouldShowArrow = isLastStory && showRightArrow;
-            const originalIndex = stories.findIndex((s) => (s._id || s.id) === (story._id || story.id));
             const storyId = story._id || story.id;
             const storyUsername = story.author?.username || story.user?.username || story.username;
-            const storyImage = story.author?.avatar || story.user?.profilePhoto || story.image;
+            const storyImage = story.author?.profilePhoto || story.author?.avatar || story.user?.profilePhoto || story.user?.avatar;
             const storyTier = story.author?.tier || story.user?.tier || story.creatorTier;
 
             return (
-              <motion.div
-                key={storyId}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.3, delay: index * 0.02 }}
+              <div
+                key={story.userId || story.author?.uid || storyId}
                 className="flex flex-col items-center gap-1 md:gap-2 flex-shrink-0"
               >
                 <div className="relative group py-1">
                   <div
                     className={`w-14 h-14 md:w-16 md:h-16 rounded-full p-[2.5px] cursor-pointer hover:scale-105 transition-transform duration-200 ${getRingStyle(storyTier, viewedStoryIds.includes(storyId))}`}
-                    onClick={() => handleStoryClick(originalIndex, storyId)}
+                    onClick={() => handleStoryClick(story)}
                   >
-                    <div className="w-full h-full rounded-full border-2 border-white dark:border-black overflow-hidden relative">
+                    <div className="w-full h-full rounded-full border-2 border-white dark:border-black overflow-hidden relative bg-gray-200 dark:bg-gray-800">
+                      {storyImage ? (
                       <img
                         src={storyImage}
                         alt={storyUsername}
@@ -248,9 +260,10 @@ export default function Stories({ onAddStory }) {
                         loading="lazy"
                         decoding="async"
                       />
+                      ) : null}
                       {/* Arrow Overlay on last story when more content available */}
                       {shouldShowArrow && (
-                        <motion.div
+                        <Motion.div
                           className="absolute inset-0 flex items-center justify-end pr-0.5 md:pr-1"
                           initial={{ opacity: 0, scale: 0.8 }}
                           animate={{ opacity: 1, scale: 1 }}
@@ -259,7 +272,7 @@ export default function Stories({ onAddStory }) {
                           <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-white flex items-center justify-center shadow-md">
                             <ChevronRight className="w-3 h-3 md:w-3.5 md:h-3.5 text-black" />
                           </div>
-                        </motion.div>
+                        </Motion.div>
                       )}
                     </div>
                   </div>
@@ -267,14 +280,14 @@ export default function Stories({ onAddStory }) {
                 <span className="text-xs dark:text-white text-black max-w-[70px] md:max-w-[80px] truncate text-center">
                   {storyUsername}
                 </span>
-              </motion.div>
+              </div>
             );
           })}
         </div>
 
         {/* Right Arrow Button - Always visible when more content */}
         {showRightArrow && (
-          <motion.button
+          <Motion.button
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
@@ -283,7 +296,7 @@ export default function Stories({ onAddStory }) {
             aria-label="Scroll right"
           >
             <ChevronRight className="w-4 h-4 md:w-5 md:h-5 dark:text-white text-black" />
-          </motion.button>
+          </Motion.button>
         )}
       </div>
 

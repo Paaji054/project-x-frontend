@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, Heart, Send, SendHorizonal, MoreVertical, Trash2 } from "lucide-react";
+import { motion as Motion, AnimatePresence } from "framer-motion";
+import { X, Heart, Send, SendHorizonal, MoreVertical, Trash2, Flag } from "lucide-react";
 import ShareModal from "./ShareModal";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
+import ReportModal from "./ReportModal";
 import { storyService } from "../services/storyService";
 import { messageService } from "../services/messageService";
 import { toast } from "react-hot-toast";
@@ -20,6 +21,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
   const [isDeleting, setIsDeleting] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [isSendingReply, setIsSendingReply] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const progressIntervalRef = useRef(null);
   const handleNextRef = useRef(null);
   const handlePrevRef = useRef(null);
@@ -215,7 +217,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
 
   return (
     <AnimatePresence>
-      <motion.div
+      <Motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -228,14 +230,14 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
         <div className="h-full flex">
           {/* Left Side - Viewed Stories (Desktop Only) */}
           {!isMobile && prevStories.length > 0 && (
-            <motion.div
+            <Motion.div
               initial={{ x: -100, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               className="w-32 border-r border-gray-800 bg-black/50 overflow-y-auto"
             >
               <div className="p-4 space-y-3">
                 {prevStories.map((story) => (
-                  <motion.div
+                  <Motion.div
                     key={story.id}
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 0.6 }}
@@ -251,16 +253,28 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                       />
                     </div>
                     <p className="text-xs text-gray-400 mt-1 truncate">{story.author?.username || story.username || ''}</p>
-                  </motion.div>
+                  </Motion.div>
                 ))}
               </div>
-            </motion.div>
+            </Motion.div>
           )}
 
           {/* Center - Current Story */}
           <div className="flex-1 relative flex items-center justify-center">
             {/* Top-right: three-dots (owner) + close */}
             <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+              {!isOwnStory && currentStory && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowReportModal(true);
+                  }}
+                  className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center hover:bg-black/70 transition"
+                  aria-label="Report story"
+                >
+                  <Flag className="w-5 h-5 text-white" />
+                </button>
+              )}
               {isOwnStory && (
                 <div className="relative">
                   <button
@@ -280,7 +294,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                         onClick={() => setStoryMenuOpen(false)}
                         aria-hidden="true"
                       />
-                      <motion.div
+                      <Motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         className="absolute right-0 top-12 z-20 min-w-[160px] rounded-xl bg-gray-900 border border-gray-700 shadow-xl py-1"
@@ -296,7 +310,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                           <Trash2 className="w-4 h-4" />
                           Delete
                         </button>
-                      </motion.div>
+                      </Motion.div>
                     </>
                   )}
                 </div>
@@ -312,7 +326,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
 
             {/* Progress Bar */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-gray-800 z-10">
-              <motion.div
+              <Motion.div
                 className="h-full bg-white"
                 style={{ width: `${progress}%` }}
                 transition={{ duration: 0.1 }}
@@ -321,7 +335,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
 
             {/* Story Content */}
             <AnimatePresence mode="wait">
-              <motion.div
+              <Motion.div
                 key={currentStoryIndex}
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -421,7 +435,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
 
                   {/* Pause Indicator */}
                   {isPaused && (
-                    <motion.div
+                    <Motion.div
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.8 }}
@@ -433,14 +447,14 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                           <div className="w-1 h-8 bg-white rounded-full"></div>
                         </div>
                       </div>
-                    </motion.div>
+                    </Motion.div>
                   )}
 
                   {/* Story Info Overlay */}
                   <div className="absolute top-4 left-4 right-4 flex items-center gap-3 z-10">
                     <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white">
                       <img
-                        src={currentStory.author?.avatar || currentStory.author?.profilePhoto || currentStory.user?.profilePhoto || currentStory.mediaUrl || currentStory.image}
+                        src={currentStory.author?.profilePhoto || currentStory.author?.avatar || currentStory.user?.profilePhoto || currentStory.user?.avatar || ''}
                         alt={storyUsername || 'Story'}
                         className="w-full h-full object-cover"
                       />
@@ -513,20 +527,20 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                     </button>
                   </div>
                 </div>
-              </motion.div>
+              </Motion.div>
             </AnimatePresence>
           </div>
 
           {/* Right Side - Unviewed Stories (Desktop Only) */}
           {!isMobile && nextStories.length > 0 && (
-            <motion.div
+            <Motion.div
               initial={{ x: 100, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               className="w-32 border-l border-gray-800 bg-black/50 overflow-y-auto"
             >
               <div className="p-4 space-y-3">
                 {nextStories.map((story) => (
-                  <motion.div
+                  <Motion.div
                     key={story.id}
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 0.6 }}
@@ -544,15 +558,21 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
                       />
                     </div>
                     <p className="text-xs text-gray-400 mt-1 truncate">{story.author?.username || story.username || ''}</p>
-                  </motion.div>
+                  </Motion.div>
                 ))}
               </div>
-            </motion.div>
+            </Motion.div>
           )}
         </div>
 
         {/* Share Modal */}
         <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} />
+        <ReportModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          targetType="story"
+          targetId={currentStory?._id || currentStory?.id}
+        />
 
         {/* Delete story confirmation - permanently removes from database */}
         <DeleteConfirmationModal
@@ -564,7 +584,7 @@ export default function StoryViewer({ stories, initialIndex, onClose, onStoryVie
           confirmLabel="Delete story"
           cancelLabel="Cancel"
         />
-      </motion.div>
+      </Motion.div>
     </AnimatePresence>
   );
 }

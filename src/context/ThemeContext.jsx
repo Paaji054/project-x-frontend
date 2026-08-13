@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 
 const ThemeContext = createContext();
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useTheme = () => {
   const context = useContext(ThemeContext);
   if (!context) {
@@ -12,9 +13,11 @@ export const useTheme = () => {
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
-    // Check localStorage for saved theme
-    const savedTheme = localStorage.getItem("theme");
-    return savedTheme || "dark";
+    const savedTheme = localStorage.getItem("theme") || "dark";
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("dark", savedTheme === "dark");
+    }
+    return savedTheme;
   });
 
   useEffect(() => {

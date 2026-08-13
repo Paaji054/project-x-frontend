@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, X, Type, Sparkles, Image as ImageIcon, Camera, Loader2, UserPlus, Video } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import logo from "../assets/logo.svg";
 import { storyService } from "../services/storyService";
 import { uploadService, MAX_VIDEO_SIZE_BYTES } from "../services/uploadService";
@@ -32,6 +32,7 @@ export default function AddStory() {
   const [stickerOverlays, setStickerOverlays] = useState([]);
   const [filter, setFilter] = useState("none");
   const [isUploading, setIsUploading] = useState(false);
+  const sharingRef = useRef(false);
   const [uploadError, setUploadError] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState("");
@@ -84,7 +85,9 @@ export default function AddStory() {
       const next = [url, ...prev.filter((u) => u !== url)].slice(0, MAX_RECENTS);
       try {
         localStorage.setItem(STORY_RECENTS_KEY, JSON.stringify(next));
-      } catch {}
+      } catch {
+        /* ignore quota / private-mode errors */
+      }
       return next;
     });
   };
@@ -356,8 +359,10 @@ export default function AddStory() {
   };
 
   const handleQualitySelected = async (quality) => {
-    if (!pendingStoryUpload) return;
-
+    if (!pendingStoryUpload || isUploading || sharingRef.current) return;
+    const pending = pendingStoryUpload;
+    sharingRef.current = true;
+    setPendingStoryUpload(null);
     setShowQualityPicker(false);
     setIsUploading(true);
     setUploadError(null);
@@ -365,7 +370,7 @@ export default function AddStory() {
     setUploadStatus("Compressing image...");
 
     try {
-      const compressed = await compressImageDataUrl(pendingStoryUpload.sourceUrl, quality);
+      const compressed = await compressImageDataUrl(pending.sourceUrl, quality);
       await executeStoryShare({ isVideo: false, dataUrl: compressed });
     } catch (error) {
       console.error("Share story error:", error);
@@ -373,6 +378,7 @@ export default function AddStory() {
       setUploadError(message);
       toast.error(message);
     } finally {
+      sharingRef.current = false;
       setPendingStoryUpload(null);
       setIsUploading(false);
       setUploadProgress(0);
@@ -381,8 +387,9 @@ export default function AddStory() {
   };
 
   const handleShare = async () => {
-    if (!selectedImage || isUploading) return;
+    if (!selectedImage || isUploading || pendingStoryUpload || sharingRef.current) return;
 
+    sharingRef.current = true;
     setUploadError(null);
     const isVideo = mediaType === "video";
 
@@ -423,6 +430,8 @@ export default function AddStory() {
       const message = error.message || "Failed to share story";
       setUploadError(message);
       toast.error(message);
+    } finally {
+      sharingRef.current = false;
     }
   };
 
@@ -709,7 +718,7 @@ export default function AddStory() {
               color: textColor,
             }}
             onMouseDown={(e) => { e.preventDefault(); setTextDragging(true); }}
-            onTouchStart={(e) => { setTextDragging(true); }}
+            onTouchStart={() => { setTextDragging(true); }}
           >
             <p className="text-3xl md:text-4xl font-bold drop-shadow-2xl text-center px-4 whitespace-pre-wrap">
               {textValue}

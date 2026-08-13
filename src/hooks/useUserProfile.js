@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 
-/**
- * Get user profile from localStorage
- */
+const pickAvatar = (profile) => {
+  if (!profile) return null;
+  return profile.profilePhoto || profile.avatar || profile.profilePicture || null;
+};
+
 const getUserProfile = () => {
   try {
     const userStr = localStorage.getItem('user');
@@ -13,42 +15,43 @@ const getUserProfile = () => {
   }
 };
 
-/**
- * Hook to get current user profile data with reactive updates
- * Automatically updates when profile changes
- */
+const sameProfile = (a, b) => {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.uid === b.uid &&
+    a.profilePhoto === b.profilePhoto &&
+    a.avatar === b.avatar &&
+    a.profileVideo === b.profileVideo &&
+    a.username === b.username &&
+    a.displayName === b.displayName &&
+    a.bio === b.bio
+  );
+};
+
 export const useUserProfile = () => {
   const [profile, setProfile] = useState(() => getUserProfile());
-  const [profilePhoto, setProfilePhoto] = useState(() => profile?.profilePhoto || null);
-  const [profileVideo, setProfileVideo] = useState(() => profile?.profileVideo || null);
+  const initial = getUserProfile();
+  const [profilePhoto, setProfilePhoto] = useState(() => pickAvatar(initial));
+  const [profileVideo, setProfileVideo] = useState(() => initial?.profileVideo || null);
 
   useEffect(() => {
-    const handleProfileUpdate = (e) => {
-      const updatedProfile = e.detail;
-      setProfile(updatedProfile);
-      setProfilePhoto(updatedProfile.profilePhoto || null);
+    const apply = (updatedProfile) => {
+      if (!updatedProfile) return;
+      setProfile((prev) => (sameProfile(prev, updatedProfile) ? prev : updatedProfile));
+      setProfilePhoto(pickAvatar(updatedProfile));
       setProfileVideo(updatedProfile.profileVideo || null);
     };
 
-    // Listen for profile updates
+    const handleProfileUpdate = (e) => apply(e.detail);
+
     window.addEventListener('profileUpdated', handleProfileUpdate);
-    
-    // Check for updates periodically (in case updated from another tab)
-    const checkProfile = () => {
-      const currentProfile = getUserProfile();
-      if (currentProfile) {
-        setProfile(currentProfile);
-        setProfilePhoto(currentProfile.profilePhoto || null);
-        setProfileVideo(currentProfile.profileVideo || null);
-      }
-    };
-    
-    checkProfile();
-    const interval = setInterval(checkProfile, 5000); // Check every 5 seconds
+    window.addEventListener('storage', () => apply(getUserProfile()));
+
+    apply(getUserProfile());
 
     return () => {
       window.removeEventListener('profileUpdated', handleProfileUpdate);
-      clearInterval(interval);
     };
   }, []);
 
@@ -59,4 +62,3 @@ export const useUserProfile = () => {
     username: profile?.username || "user"
   };
 };
-

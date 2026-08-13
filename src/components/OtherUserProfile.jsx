@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import PostDetailModal from "../components/PostDetailModal";
 import FollowersFollowingModal from "../components/FollowersFollowingModal";
 import LiveProfilePhoto from "../components/LiveProfilePhoto";
-import { getProfileVideoUrl } from "../utils/profileVideos";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useAuth } from "../context/AuthContext";
 import { userService, postService } from "../services";
@@ -238,6 +237,7 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
   // Handle follow from followers/following modal
   // Signature from FollowersFollowingModal: onFollow(userId, username)
   const handleFollowUser = async (userId, targetUsername) => {
+    const previousFollowingState = isFollowing;
     try {
       await userService.followUser(userId);
       
@@ -346,54 +346,53 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
         {/* Profile Info Section */}
         <div className="flex flex-col items-center gap-6 mb-8">
           {/* Profile Picture */}
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
+          <Motion.div
+            initial={false}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5 }}
             className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-2 border-black dark:border-gray-800"
           >
             <LiveProfilePhoto
-              imageSrc={userData.profilePhoto}
+              imageSrc={userData.profilePhoto || userData.avatar || userData.profilePicture}
               videoSrc={userData.profileVideo}
               alt="Profile"
               className="w-full h-full rounded-full"
             />
-          </motion.div>
+          </Motion.div>
 
           {/* Profile Details */}
           <div className="flex flex-col items-center text-center w-full">
             {/* Username */}
-            <motion.h2
+            <Motion.h2
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.1, duration: 0.5 }}
               className="text-xl md:text-2xl font-semibold text-black dark:text-white mb-2"
             >
               {userData.username}
-            </motion.h2>
+            </Motion.h2>
 
             {/* Full Name */}
-            <motion.p
+            <Motion.p
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.15, duration: 0.5 }}
               className="text-gray-700 dark:text-gray-300 mb-3"
             >
               {userData.fullName}
-            </motion.p>
+            </Motion.p>
 
             {/* Bio */}
-            <motion.p
+            <Motion.p
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.5 }}
               className="text-black dark:text-white mb-6 text-sm md:text-base"
             >
               {userData.bio}
-            </motion.p>
+            </Motion.p>
 
             {/* Stats */}
-            <motion.div
+            <Motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.25, duration: 0.5 }}
@@ -423,11 +422,11 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
                 <p className="font-bold text-black dark:text-white">{followingCount}</p>
                 <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm">Following</p>
               </button>
-            </motion.div>
+            </Motion.div>
 
             {/* Follow and Message Buttons - hide when viewing own profile (e.g. before redirect runs) */}
             {currentUserId && (userData?.uid || userData?._id) === currentUserId ? (
-              <motion.div
+              <Motion.div
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.3, duration: 0.5 }}
@@ -439,9 +438,9 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
                 >
                   View my profile
                 </button>
-              </motion.div>
+              </Motion.div>
             ) : (
-            <motion.div
+            <Motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.3, duration: 0.5 }}
@@ -463,13 +462,13 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
                 <MessageCircle className="h-4 w-4" />
                 Message
               </button>
-            </motion.div>
+            </Motion.div>
             )}
           </div>
         </div>
 
         {/* Posts Grid */}
-        <motion.div
+        <Motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.35, duration: 0.5 }}
@@ -493,7 +492,7 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
             </div>
           ) : (
             posts.map((post, index) => (
-              <motion.div
+              <Motion.div
                 key={post.id || post._id}
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -508,10 +507,10 @@ export default function OtherUserProfile({ username: viewedUsername, onViewUserP
                   loading="lazy"
                   decoding="async"
                 />
-              </motion.div>
+              </Motion.div>
             ))
           )}
-        </motion.div>
+        </Motion.div>
       </div>
 
       {/* Post Detail Modal */}

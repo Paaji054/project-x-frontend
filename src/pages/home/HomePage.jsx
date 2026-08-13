@@ -25,6 +25,7 @@ export default function HomePage({ onViewUserProfile }) {
   const [hasMore, setHasMore] = useState(true);
   const [lastDocId, setLastDocId] = useState(null);
   const loadingRef = useRef(null);
+  const fetchingRef = useRef(false);
 
   // Fetch initial posts
   useEffect(() => {
@@ -37,7 +38,7 @@ export default function HomePage({ onViewUserProfile }) {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
+        if (entries[0].isIntersecting && !fetchingRef.current) {
           fetchPosts();
         }
       },
@@ -51,9 +52,11 @@ export default function HomePage({ onViewUserProfile }) {
     return () => {
       observer.disconnect();
     };
-  }, [hasMore, loading, lastDocId]);
+  }, [hasMore, loading]);
 
   const fetchPosts = async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     try {
       setLoading(true);
       setError(null);
@@ -76,6 +79,7 @@ export default function HomePage({ onViewUserProfile }) {
       console.error("Error fetching feed:", err);
       setError(err.message || "Failed to load posts");
     } finally {
+      fetchingRef.current = false;
       setLoading(false);
     }
   };

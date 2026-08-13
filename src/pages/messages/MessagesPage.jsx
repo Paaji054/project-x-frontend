@@ -157,7 +157,7 @@ export default function MessagesPage({ onViewUserProfile, selectedChatUsername }
     };
     window.addEventListener('storage', handleStorageChange);
     // Also check periodically for same-tab updates
-    const interval = setInterval(handleStorageChange, 500);
+    const interval = setInterval(handleStorageChange, 5000);
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(interval);
